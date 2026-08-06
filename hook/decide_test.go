@@ -203,6 +203,105 @@ enabled = true
 	}
 }
 
+// Decide is the one place the winner among competing verbs is settled, yet only
+// the gate-keeps-advice seam runs end-to-end today. PreToolUse accepts Check,
+// Rewrite, Gate and Advise, so every combination here is a real contest.
+func TestDecidePrecedence(t *testing.T) {
+	denyCheck := Rule{
+		ID: "prec-check", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+		Check: func(context.Context, *Event) []Finding {
+			return []Finding{{Message: "check-denied"}}
+		},
+	}
+	allowGate := Rule{
+		ID: "prec-gate", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+		Gate: func(context.Context, *Event) *Decision {
+			return &Decision{Permission: PermissionAllow, Reason: "gate-allowed"}
+		},
+	}
+	rewrite := Rule{
+		ID: "prec-rewrite", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+		Rewrite: func(context.Context, *Event) *Mutation {
+			return &Mutation{UpdatedInput: map[string]any{"command": "rewritten"}}
+		},
+	}
+	advise := Rule{
+		ID: "prec-advise", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+		Advise: func(context.Context, *Event) *Advice {
+			return &Advice{Text: "advised-context"}
+		},
+	}
+
+	cases := []struct {
+		name    string
+		rules   []Rule
+		want    []string
+		notWant []string
+	}{
+		{
+			name:    "check deny beats a gate that would allow",
+			rules:   []Rule{allowGate, denyCheck},
+			want:    []string{`"permissionDecision":"deny"`, "check-denied"},
+			notWant: []string{"gate-allowed"},
+		},
+		{
+			name:    "gate beats a rewrite",
+			rules:   []Rule{rewrite, allowGate},
+			want:    []string{`"permissionDecision":"allow"`},
+			notWant: []string{"updatedInput", "rewritten"},
+		},
+		{
+			name:  "a rewrite lands when nothing outranks it",
+			rules: []Rule{rewrite},
+			want:  []string{`"updatedInput"`, "rewritten"},
+		},
+		{
+			name:  "advice rides alongside a check block",
+			rules: []Rule{advise, denyCheck},
+			want: []string{
+				`"permissionDecision":"deny"`, "check-denied",
+				`"additionalContext"`, "advised-context",
+			},
+		},
+		{
+			name:    "advice alone neither blocks nor rewrites",
+			rules:   []Rule{advise},
+			want:    []string{`"additionalContext"`, "advised-context"},
+			notWant: []string{`"permissionDecision"`, "updatedInput"},
+		},
+		{
+			name:    "check outranks gate and rewrite, advice still rides",
+			rules:   []Rule{advise, rewrite, allowGate, denyCheck},
+			want:    []string{`"permissionDecision":"deny"`, "check-denied", "advised-context"},
+			notWant: []string{"gate-allowed", "rewritten"},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			writeUserConfig(t, "")
+			saved := registry
+			t.Cleanup(func() { registry = saved })
+			registry = c.rules
+
+			out, err := Decide(&Event{HookEventName: PreToolUse, ToolName: "Bash"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, w := range c.want {
+				if !strings.Contains(out, w) {
+					t.Errorf("want %q in %q", w, out)
+				}
+			}
+			for _, nw := range c.notWant {
+				if strings.Contains(out, nw) {
+					t.Errorf("did not want %q in %q", nw, out)
+				}
+			}
+		})
+	}
+}
+
 // PermissionRequest reads decision.behavior, not permissionDecision, and its
 // deny reason is decision.message. Emitting the PreToolUse shape here is not a
 // no-op: a session that cannot prompt denies anything left undecided.
