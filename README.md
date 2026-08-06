@@ -58,16 +58,34 @@ A rule reports what it found; you decide whether that blocks the call, arrives a
 
 ## The rules
 
-| Rule | Event | Does |
-| --- | --- | --- |
-| `secret-scan` | `UserPromptSubmit` | Blocks a prompt carrying a credential, **before it is sent**. |
-| `secret-redact` | `PostToolUse` | Replaces credentials in tool output with `<redacted:kind>` before Claude reads them. |
-| `no-codegen` | `PreToolUse` | Blocks writes to trees you have marked off-limits to AI-authored code. |
-| `lint` | `PostToolUse` | Runs the file's linter after an edit and reports what it said. |
-| `comments` | `PostToolUse` | Flags verbose or agent-memo comments **a change touched**. |
-| `prose-wrap` | `PostToolUse` | Flags markdown prose hard-wrapped mid-sentence. |
-| `bash-output` | `PostToolUse` (+failure) | Re-prints collapsed Bash output in full, no `ctrl+o`. |
-| `mermaid-stream` | `MessageDisplay` | Renders ` ```mermaid ` fences as terminal ASCII, inline as text streams. |
+These ship in the box. Every one is disabled until you enable it.
+
+<!-- ollie-hooks:rules -->
+| Rule | Event | Verb | Does |
+| --- | --- | --- | --- |
+| `no-codegen` | `PreToolUse` | Check | Block writes to trees configured as off-limits to AI-authored code |
+| `secret-scan` | `UserPromptSubmit` | Check | Scan the prompt for credentials and block before it is sent |
+| `secret-redact` | `PostToolUse` | Rewrite | Replace credentials in tool output with a placeholder before Claude reads it |
+| `lint` | `PostToolUse` | Advise | After an edit, run the file's linter and report what it found (never blocks the edit) |
+| `comments` | `PostToolUse` | Check | Flag verbose or agent-memo comments a change touched (advisory) — justify, slim, or remove |
+| `bash-output` | `PostToolUse`, `PostToolUseFailure` | Display | Re-print a collapsed Bash result in full, so it needs no ctrl+o |
+| `mermaid-stream` | `MessageDisplay` | Display | Render mermaid fences as terminal ASCII, inline while text streams |
+| `prose-wrap` | `PostToolUse` | Check | Flag markdown prose a change hard-wrapped mid-sentence (advisory) — one sentence per line |
+<!-- /ollie-hooks:rules -->
+
+`ollie-hooks rules` prints the same list with what your own config is doing to each:
+
+```console
+$ ollie-hooks rules
+RULE            STATE     VERB     DESCRIPTION
+bash-output     off       Display  Re-print a collapsed Bash result in full, so it needs no ctrl+o
+comments        advisory  Check    Flag verbose or agent-memo comments a change touched
+lint            on        Advise   After an edit, run the file's linter and report what it found
+secret-scan     block     Check    Scan the prompt for credentials and block before it is sent
+                          missing betterleaks (brew install betterleaks)
+```
+
+Per-rule configuration is in [docs/rules.md](docs/rules.md), or run `ollie-hooks config example`.
 
 Two are worth expanding on.
 

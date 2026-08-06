@@ -52,6 +52,17 @@ jobs:
         with:
           version: latest
 
+      # The docs are generated from the registered rules, so the only way they
+      # can drift is if someone edits a rule and forgets to regenerate. That is
+      # exactly what this catches.
+      - name: docs are up to date
+        run: |
+          make docs
+          git diff --exit-code -- docs/ README.md || {
+            echo "::error::docs are stale — run 'make docs' and commit the result"
+            exit 1
+          }
+
   # The install script fetches and runs a binary that gates every tool call, so
   # a shell bug here is a security problem rather than an inconvenience.
   shellcheck:

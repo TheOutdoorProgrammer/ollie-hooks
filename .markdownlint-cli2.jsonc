@@ -1,0 +1,21 @@
+// Markdown lint rules for this repo. Defaults stay on except the ones below.
+{
+  "config": {
+    "default": true,
+
+    // MD013 line-length: off. Prose here is one sentence per line, which is a
+    // deliberate choice — renderers rejoin the lines anyway, and hard-wrapping
+    // means editing one sentence reflows every line after it, burying the real
+    // change in the diff. Generated tables also routinely exceed 80.
+    "MD013": false,
+
+    // MD060 table-column-style: off. Flags compact separator rows and pipe
+    // spacing, which the generated tables in docs/rules.md produce by design.
+    "MD060": false,
+
+    // MD010 no-hard-tabs: off. Go examples are gofmt'd, so they are
+    // tab-indented, and every doc with a code sample would fire.
+    "MD010": false
+  },
+  "globs": ["**/*.md", "!dist/**"]
+}
