@@ -19,8 +19,16 @@ func Register() {
 			"Only `graph` and `flowchart`, `sequenceDiagram` and `erDiagram` parse at " +
 			"all. Anything else, or anything wider than `width_cap`, keeps its fence and " +
 			"is left alone.",
-		Events:  []hook.EventName{hook.MessageDisplay},
-		Config:  defaultConfig(),
+		Events: []hook.EventName{hook.MessageDisplay},
+		Config: defaultConfig(),
+		// Declare the renderer, so a missing mermaid-ascii is reported by doctor
+		// and skips the rule with a trace instead of silently rendering nothing.
+		Binaries: func() []hook.Binary {
+			return []hook.Binary{{
+				Bin:     loadConfig().Binary,
+				Install: "go install github.com/AlexanderGrooff/mermaid-ascii@latest",
+			}}
+		},
 		Display: displayMermaidStream,
 	})
 }
