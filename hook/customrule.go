@@ -22,6 +22,14 @@ func RegisterCustomRules() []error {
 		if !entries[id].Enabled {
 			continue
 		}
+		// Checked here rather than left to Register, which panics on a duplicate
+		// id: naming a custom rule after a built-in is an obvious thing to try
+		// when overriding one, and a panic takes every other rule down with it.
+		if registered(id) {
+			errs = append(errs, fmt.Errorf("custom_rules.%s: %q is a built-in rule; "+
+				"pick another id (a custom rule cannot override one)", id, id))
+			continue
+		}
 		r, err := customRule(id, entries[id])
 		if err != nil {
 			errs = append(errs, fmt.Errorf("custom_rules.%s: %w", id, err))

@@ -124,6 +124,17 @@ type Finding struct {
 
 var registry []Rule
 
+// registered reports whether a rule id is already taken, for callers that must
+// not risk Register's panic.
+func registered(id string) bool {
+	for _, r := range registry {
+		if r.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 // Register adds a rule; an empty ID/Event, no behavior, or duplicate ID panics
 // at startup rather than producing confusing double findings.
 func Register(r Rule) {
@@ -131,10 +142,8 @@ func Register(r Rule) {
 		panic("hooks: Register needs a non-empty ID/Events and exactly one of " +
 			"Check, Rewrite, Gate, Display or Advise")
 	}
-	for _, existing := range registry {
-		if existing.ID == r.ID {
-			panic("hooks: rule " + r.ID + " registered twice")
-		}
+	if registered(r.ID) {
+		panic("hooks: rule " + r.ID + " registered twice")
 	}
 	// Fail loudly at startup, not silently forever: an event whose envelope has
 	// no path for this verb would accept the rule and never run it.
