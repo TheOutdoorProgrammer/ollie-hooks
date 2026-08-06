@@ -63,5 +63,5 @@ func (s *State) Save(v any) error {
 // TempDir used to give us that cleanup for free; the state dir does not.
 func (s *State) Clear() {
 	_ = os.Remove(s.path())
-	sweepStale(stateDir())
+	sweepStale(stateDir(), s.rule)
 }

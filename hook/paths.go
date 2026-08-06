@@ -3,6 +3,7 @@ package hook
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -52,17 +53,30 @@ func stateDir() string {
 
 // sweepStale deletes state files older than staleStateAge. Call it on a
 // once-per-message path, never per delta — MessageDisplay is the hot event.
-func sweepStale(dir string) {
+func sweepStale(dir, rule string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	cutoff := time.Now().Add(-staleStateAge)
 	for _, e := range entries {
+		// Only this rule's own files. Sweeping the whole directory made one
+		// rule's cleanup delete another's state, and the binary cache with it.
+		if !ownedBy(e.Name(), rule) {
+			continue
+		}
 		info, err := e.Info()
 		if err != nil || info.ModTime().After(cutoff) {
 			continue
 		}
 		_ = os.Remove(filepath.Join(dir, e.Name()))
 	}
+}
+
+// ownedBy reports whether a state file belongs to a rule. Files are named
+// <rule>.json or <rule>-<key>.json, so a bare prefix test would also match an
+// unrelated rule whose name merely starts the same way.
+func ownedBy(name, rule string) bool {
+	rest, ok := strings.CutPrefix(name, rule)
+	return ok && (rest == ".json" || strings.HasPrefix(rest, "-"))
 }
