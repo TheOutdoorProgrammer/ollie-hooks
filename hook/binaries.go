@@ -88,16 +88,16 @@ func saveBinaryCache(c binaryCache) {
 	}
 	name := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(name)
+		_ = tmp.Close()
+		_ = os.Remove(name)
 		return
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(name)
+		_ = os.Remove(name)
 		return
 	}
 	if err := os.Rename(name, binaryCachePath()); err != nil {
-		os.Remove(name)
+		_ = os.Remove(name)
 	}
 }
 

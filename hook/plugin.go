@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 // PluginResponse is what an out-of-process rule returns. It mirrors a built-in
@@ -88,7 +87,3 @@ func transportFor(c CustomRule) (transport, error) {
 	}
 	return nil, fmt.Errorf("needs a server_url or a startup_cmd")
 }
-
-// pluginTimeout bounds a call when the entry does not say. Generous, because a
-// plugin doing real work is the point — the rule's own budget still applies.
-const pluginTimeout = 30 * time.Second
