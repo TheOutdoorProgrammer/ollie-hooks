@@ -1,8 +1,10 @@
 package mermaid
 
 import (
+	"context"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 const (
@@ -12,11 +14,14 @@ const (
 
 // renderMermaid returns ASCII for a fence body, or "" when the render can't be
 // trusted: unsupported diagram type, wider than WidthCap, or no binary.
-func renderMermaid(body []string, cfg config) string {
+func renderMermaid(ctx context.Context, body []string, cfg config) string {
 	if strings.TrimSpace(strings.Join(body, "\n")) == "" {
 		return ""
 	}
-	cmd := exec.Command(cfg.Binary, "-f", "-")
+	// CommandContext, so an abandoned rule takes its renderer with it. This
+	// fires once per streamed delta, and orphans would pile up fast.
+	cmd := exec.CommandContext(ctx, cfg.Binary, "-f", "-")
+	cmd.WaitDelay = time.Second
 	cmd.Stdin = strings.NewReader(stripClassDef(body))
 	raw, err := cmd.Output()
 	if err != nil {

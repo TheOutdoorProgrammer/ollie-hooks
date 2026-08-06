@@ -42,11 +42,11 @@ func displayMermaidStream(ctx context.Context, ev *hook.Event) *hook.DisplayCont
 		lines = lines[:n-1]
 	}
 	for _, line := range lines {
-		st.feed(line, out, cfg)
+		st.feed(ctx, line, out, cfg)
 	}
 	if ev.Final {
 		if st.Carry != "" {
-			st.feed(st.Carry, out, cfg)
+			st.feed(ctx, st.Carry, out, cfg)
 			st.Carry = ""
 		}
 		// An unterminated fence would vanish with the state file — flush it raw.
@@ -62,7 +62,7 @@ func displayMermaidStream(ctx context.Context, ev *hook.Event) *hook.DisplayCont
 }
 
 // feed consumes one complete line (its newline kept) of the message.
-func (st *mermaidState) feed(line string, out *strings.Builder, cfg config) {
+func (st *mermaidState) feed(ctx context.Context, line string, out *strings.Builder, cfg config) {
 	trimmed := strings.TrimSpace(line)
 	if !st.InFence {
 		if strings.HasPrefix(trimmed, mermaidFenceOpen) {
@@ -78,7 +78,7 @@ func (st *mermaidState) feed(line string, out *strings.Builder, cfg config) {
 		return
 	}
 	st.InFence = false
-	if art := renderMermaid(st.Body, cfg); art != "" {
+	if art := renderMermaid(ctx, st.Body, cfg); art != "" {
 		out.WriteString(mermaidFenceClose + "\n" + art + "\n" + mermaidFenceClose + "\n")
 	} else {
 		out.WriteString(strings.Join(st.Raw, "")) // unsupported or too wide

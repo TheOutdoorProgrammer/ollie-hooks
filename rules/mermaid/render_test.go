@@ -1,6 +1,7 @@
 package mermaid
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
@@ -19,7 +20,7 @@ func requireMermaidASCII(t *testing.T) {
 
 func TestRenderMermaidProducesASCII(t *testing.T) {
 	requireMermaidASCII(t)
-	art := renderMermaid([]string{"graph LR", "  A[start] --> B[end]"}, defaultConfig())
+	art := renderMermaid(context.Background(), []string{"graph LR", "  A[start] --> B[end]"}, defaultConfig())
 	if art == "" {
 		t.Fatal("want a render, got empty")
 	}
@@ -32,7 +33,7 @@ func TestRenderMermaidProducesASCII(t *testing.T) {
 
 func TestRenderMermaidSkipsUnsupportedDiagram(t *testing.T) {
 	requireMermaidASCII(t)
-	if art := renderMermaid([]string{"stateDiagram-v2", "  [*] --> Idle"}, defaultConfig()); art != "" {
+	if art := renderMermaid(context.Background(), []string{"stateDiagram-v2", "  [*] --> Idle"}, defaultConfig()); art != "" {
 		t.Errorf("unsupported diagram should yield nothing, got:\n%s", art)
 	}
 }
@@ -41,13 +42,13 @@ func TestRenderMermaidSkipsOverWideDiagram(t *testing.T) {
 	requireMermaidASCII(t)
 	cfg := defaultConfig()
 	cfg.WidthCap = 5
-	if art := renderMermaid([]string{"graph LR", "  A[wide] --> B[wider]"}, cfg); art != "" {
+	if art := renderMermaid(context.Background(), []string{"graph LR", "  A[wide] --> B[wider]"}, cfg); art != "" {
 		t.Errorf("over-cap render should be dropped, got:\n%s", art)
 	}
 }
 
 func TestRenderMermaidIgnoresEmptyBody(t *testing.T) {
-	if art := renderMermaid([]string{"", "   "}, defaultConfig()); art != "" {
+	if art := renderMermaid(context.Background(), []string{"", "   "}, defaultConfig()); art != "" {
 		t.Errorf("empty body should yield nothing, got %q", art)
 	}
 }
@@ -55,7 +56,7 @@ func TestRenderMermaidIgnoresEmptyBody(t *testing.T) {
 func TestRenderMermaidSurvivesMissingBinary(t *testing.T) {
 	cfg := defaultConfig()
 	cfg.Binary = "definitely-not-a-real-binary-xyzzy"
-	if art := renderMermaid([]string{"graph LR", "  A-->B"}, cfg); art != "" {
+	if art := renderMermaid(context.Background(), []string{"graph LR", "  A-->B"}, cfg); art != "" {
 		t.Errorf("a missing binary must degrade to empty, got %q", art)
 	}
 }
