@@ -8,23 +8,23 @@ import (
 	"time"
 )
 
-// pluginRequest is what a plugin reads on stdin: the event exactly as Claude
+// PluginRequest is what a plugin reads on stdin: the event exactly as Claude
 // Code sent it, plus which of this plugin's rules are being asked. Rules is how
 // one binary serves several roles in a single call rather than one spawn each.
-type pluginRequest struct {
+type PluginRequest struct {
 	Event json.RawMessage `json:"event"`
 	Rules []string        `json:"rules"`
 }
 
-// pluginReply is what a plugin writes. A single-rule plugin can answer with the
+// PluginReply is what a plugin writes. A single-rule plugin can answer with the
 // bare response; one serving several roles keys them by rule id.
-type pluginReply struct {
+type PluginReply struct {
 	PluginResponse
 	Rules map[string]PluginResponse `json:"rules,omitempty"`
 }
 
 // for returns the response meant for one rule, preferring an explicit entry.
-func (r pluginReply) for_(id string) PluginResponse {
+func (r PluginReply) for_(id string) PluginResponse {
 	if got, ok := r.Rules[id]; ok {
 		return got
 	}
@@ -36,7 +36,7 @@ func (r pluginReply) for_(id string) PluginResponse {
 // lock across the call.
 type brokerEntry struct {
 	once  sync.Once
-	reply pluginReply
+	reply PluginReply
 	ok    bool
 }
 
@@ -85,7 +85,7 @@ func (b *pluginBroker) response(ctx context.Context, key string, t transport, ev
 	// Outside the lock: a subprocess or an HTTP round trip is far too long to
 	// hold one for, and the once already guarantees a single call.
 	entry.once.Do(func() {
-		payload, err := json.Marshal(pluginRequest{
+		payload, err := json.Marshal(PluginRequest{
 			Event: eventPayload(ev),
 			Rules: asked,
 		})
@@ -151,7 +151,7 @@ func sharedBudget(ids []string) time.Duration {
 	return time.Duration(longest) * time.Second
 }
 
-func decodeReply(raw []byte, into *pluginReply) error {
+func decodeReply(raw []byte, into *PluginReply) error {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return nil // nothing to say is a valid answer
 	}

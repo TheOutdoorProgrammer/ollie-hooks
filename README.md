@@ -179,6 +179,7 @@ Returning the wrong one is an error rather than an envelope Claude Code quietly 
 ## Rules in another process
 
 A custom rule can live anywhere. It reads a request on stdin and writes a reply on stdout.
+The full guide, including the wire protocol and both a raw-JSON and a typed-Go plugin, is in [CUSTOM_RULES.md](CUSTOM_RULES.md).
 
 ```toml
 [custom_rules.no-curl]

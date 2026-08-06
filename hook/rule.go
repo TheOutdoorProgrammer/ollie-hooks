@@ -125,19 +125,19 @@ const (
 type Decision struct {
 	// Rule is filled in by the framework with the firing rule's ID; any value
 	// you set here is overwritten.
-	Rule string
+	Rule string `json:"rule,omitempty"`
 	// Permission is the verdict, from the constants above. PreToolUse and
 	// PermissionRequest take allow/deny; Elicitation takes accept/decline/cancel.
-	Permission string
+	Permission string `json:"permission,omitempty"`
 	// Reason explains the verdict. Multiline is fine, it lands in a JSON string
 	// rather than the rendered findings table.
-	Reason string
+	Reason string `json:"reason,omitempty"`
 	// UpdatedInput replaces the tool's arguments. Allowed calls only, and it
 	// replaces the WHOLE object, so start from the decoded input.
-	UpdatedInput map[string]any
+	UpdatedInput map[string]any `json:"updatedInput,omitempty"`
 	// Content is the form the user would have filled in, for an accepted
 	// Elicitation.
-	Content map[string]any
+	Content map[string]any `json:"content,omitempty"`
 }
 
 // Mutation transforms a tool call instead of blocking it. Which field applies
@@ -145,18 +145,18 @@ type Decision struct {
 type Mutation struct {
 	// Rule is filled in by the framework with the firing rule's ID; any value
 	// you set here is overwritten.
-	Rule string
+	Rule string `json:"rule,omitempty"`
 	// UpdatedInput replaces a tool's arguments before it runs (PreToolUse). It
 	// replaces the WHOLE object, so start from the decoded input or fields the
 	// rule never touched are dropped.
-	UpdatedInput map[string]any
+	UpdatedInput map[string]any `json:"updatedInput,omitempty"`
 	// UpdatedOutput replaces a tool's result before Claude sees it
 	// (PostToolUse). It must match that tool's output shape — Bash is
 	// {stdout, stderr, interrupted, isImage} — or it is discarded silently.
-	UpdatedOutput any
+	UpdatedOutput any `json:"updatedOutput,omitempty"`
 	// Note rides along as additionalContext. A rewrite the model cannot see is
 	// confusing: it should learn that its input or output changed, and why.
-	Note string
+	Note string `json:"note,omitempty"`
 }
 
 // Finding is one violation: which rule fired and what the model should do
