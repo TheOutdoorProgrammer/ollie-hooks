@@ -1,7 +1,9 @@
 package hook
 
 import (
+	"fmt"
 	"os"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 )
@@ -10,28 +12,47 @@ import (
 // rule shipping disabled, users need one place that lists what exists.
 const configFile = "config.toml"
 
+// malformedOnce keeps the report below to one line per process, however many
+// rules look the file up.
+var malformedOnce sync.Once
+
+// decodeConfig reads the config file into root. ok is false only when the file
+// exists and does not parse — worth shouting about, because every rule then
+// falls back to its default, and every default is disabled.
+func decodeConfig(root any) (toml.MetaData, bool) {
+	path := configPath(configFile)
+	if path == "" {
+		return toml.MetaData{}, true
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return toml.MetaData{}, true
+	}
+	md, err := toml.Decode(string(data), root)
+	if err != nil {
+		malformedOnce.Do(func() {
+			fmt.Fprintf(os.Stderr, "ollie-hooks: %s does not parse, so NO rules are "+
+				"active — every one fell back to its default, which is disabled: %v\n", path, err)
+		})
+		return toml.MetaData{}, false
+	}
+	return md, true
+}
+
 // LoadConfig decodes the [rules.<id>] section over whatever defaults v already
 // holds, and reports whether that succeeded. A missing file or absent section
 // is success — v keeps its defaults. Only a malformed section is false, which
 // callers answer by discarding v: a bad config must never half-configure a rule.
 func LoadConfig(id string, v any) bool {
-	path := configPath(configFile)
-	if path == "" {
-		return true
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return true
-	}
 	var root struct {
 		Rules map[string]toml.Primitive `toml:"rules"`
 	}
-	md, err := toml.Decode(string(data), &root)
-	if err != nil {
+	md, ok := decodeConfig(&root)
+	if !ok {
 		return false
 	}
-	section, ok := root.Rules[id]
-	if !ok {
+	section, found := root.Rules[id]
+	if !found {
 		return true
 	}
 	return md.PrimitiveDecode(section, v) == nil
@@ -81,19 +102,11 @@ func wrapWidth() int {
 	var out struct {
 		WrapWidth int `toml:"wrap_width"`
 	}
-	path := configPath(configFile)
-	if path == "" {
-		return defaultWrapWidth
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return defaultWrapWidth
-	}
 	var root struct {
 		Output toml.Primitive `toml:"output"`
 	}
-	md, err := toml.Decode(string(data), &root)
-	if err != nil {
+	md, ok := decodeConfig(&root)
+	if !ok {
 		return defaultWrapWidth
 	}
 	if err := md.PrimitiveDecode(root.Output, &out); err != nil || out.WrapWidth <= 0 {
@@ -120,18 +133,10 @@ type CustomRule struct {
 
 // LoadCustomRules returns the configured out-of-process rules by id.
 func LoadCustomRules() map[string]CustomRule {
-	path := configPath(configFile)
-	if path == "" {
-		return nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil
-	}
 	var root struct {
 		CustomRules map[string]CustomRule `toml:"custom_rules"`
 	}
-	if _, err := toml.Decode(string(data), &root); err != nil {
+	if _, ok := decodeConfig(&root); !ok {
 		return nil
 	}
 	return root.CustomRules
