@@ -297,14 +297,19 @@ func RunChecks(ev *Event) CheckResults {
 		if !RuleEnabled(r.ID, r.EnabledByDefault) {
 			continue
 		}
+		// Severity first. "off" has to mean exactly what disabling means, or a
+		// silenced rule still blocks calls the moment its tool goes missing.
+		sev := r.severity()
+		if sev == SeverityOff {
+			continue
+		}
 		// Every verb's missing binaries surface here, in the blocking channel:
 		// an enabled check that cannot run is a failure, not a suggestion.
 		if missing := MissingBinaries(r.RequiresBinaries); len(missing) > 0 {
 			res.Findings = append(res.Findings, missingBinaryFindings(r.ID, missing)...)
 			continue
 		}
-		sev := r.severity()
-		if r.Check == nil || sev == SeverityOff {
+		if r.Check == nil {
 			continue
 		}
 		var fired []Finding
