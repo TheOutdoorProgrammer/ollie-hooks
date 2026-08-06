@@ -43,6 +43,11 @@ func decodeConfig(root any) (toml.MetaData, bool) {
 // success. Missing file or section is success (v keeps defaults); only a
 // malformed section is false, and callers discard v rather than half-apply it.
 func loadConfig(id string, v any) bool {
+	// A trusted project's section replaces the user's for that rule, unless the
+	// rule is floored. See adr/0005 for why a repo is trusted before it counts.
+	if pmd, section, found := projectRuleSection(id); found {
+		return pmd.PrimitiveDecode(section, v) == nil
+	}
 	var root struct {
 		Rules map[string]toml.Primitive `toml:"rules"`
 	}
@@ -137,7 +142,9 @@ type CustomRule struct {
 	Enabled   bool        `toml:"enabled"`
 }
 
-// LoadCustomRules returns the configured out-of-process rules by id.
+// LoadCustomRules returns the configured out-of-process rules by id. User
+// config only: a custom rule's startup_cmd is arbitrary local code, so project
+// config never defines one, trusted or not (adr/0005).
 func LoadCustomRules() map[string]CustomRule {
 	var root struct {
 		CustomRules map[string]CustomRule `toml:"custom_rules"`

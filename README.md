@@ -171,6 +171,17 @@ Set `server_url` instead of `startup_cmd` for a plugin that needs warm state. Sa
 A custom Check rule can be downgraded like any built-in — to `advisory` or `off` — but the knob lives in a differently named section.
 `[custom_rules.<id>]` *defines* the rule (`enabled`, `startup_cmd`, `verb`, `events`, `tools`, and a default `timeout`); its `severity` is read from the same-id `[rules.<id>]` section, which also overrides `timeout`.
 
+## Per-project config
+
+A repo can carry its own config in a `.ollie-hooks.toml` at its root, so a `no-codegen` tree or a stricter rule choice travels with the code instead of living in each person's `~/.config`.
+
+It does nothing until you trust the repo: run `ollie-hooks trust` from inside it, and `ollie-hooks untrust` to stop.
+An untrusted repo's config is ignored with a one-time notice, so cloning a stranger's repo cannot change what your gate does.
+
+Trust is deliberately limited: a project may turn rules on and tune their pure config, but it can never make ollie-hooks run a program.
+`[custom_rules.*]` from a project file is ignored, no rule's scanner or linter binary can be repointed, and `secret-scan` and `secret-redact` take config from your user file only.
+See [adr/0005](adr/0005-per-project-config-requires-trust.md) for why.
+
 ## When things go wrong
 
 Rules fail open. A rule that errors, times out, or is missing its tool never wedges a session — which also means a broken rule is silent. So:

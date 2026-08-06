@@ -29,6 +29,8 @@ Usage:
   ollie-hooks rules            What rules exist, and what your config does with them.
   ollie-hooks config example   A commented config covering every rule.
   ollie-hooks wiring           The settings.json entries that wire this up.
+  ollie-hooks trust [dir]      Apply this repo's .ollie-hooks.toml config.
+  ollie-hooks untrust [dir]    Stop applying this repo's project config.
   ollie-hooks docs             The markdown rule reference.
   ollie-hooks version          Print the version.
   ollie-hooks help             Print this.
@@ -77,6 +79,10 @@ func main() {
 			}
 			fmt.Fprintln(os.Stderr, "ollie-hooks: usage: ollie-hooks config example")
 			os.Exit(2)
+		case "trust":
+			trustCmd(os.Args[2:], true)
+		case "untrust":
+			trustCmd(os.Args[2:], false)
 		case "version", "--version", "-v":
 			fmt.Printf("ollie-hooks %s (%s)\n", version, commit)
 		case "help", "--help", "-h":
@@ -105,4 +111,28 @@ func main() {
 	if out != "" {
 		fmt.Println(out)
 	}
+}
+
+// trustCmd trusts or untrusts a project so its .ollie-hooks.toml is applied or
+// ignored. With no argument it acts on the project found from the working dir.
+func trustCmd(args []string, trust bool) {
+	dir := ""
+	if len(args) > 0 {
+		dir = args[0]
+	} else {
+		dir = hook.ProjectConfigDir()
+	}
+	if dir == "" {
+		fmt.Fprintln(os.Stderr, "ollie-hooks: no .ollie-hooks.toml found here; pass a directory")
+		os.Exit(2)
+	}
+	verb, ok := "trusted", hook.Trust(dir)
+	if !trust {
+		verb, ok = "untrusted", hook.Untrust(dir)
+	}
+	if !ok {
+		fmt.Fprintln(os.Stderr, "ollie-hooks: could not update the trust list")
+		os.Exit(1)
+	}
+	fmt.Printf("%s %s\n", verb, dir)
 }
