@@ -125,6 +125,151 @@ func TestFailClosedOnTimeoutRejectedOnNonBlockingVerb(t *testing.T) {
 	})
 }
 
+// sandbox swaps the registry for the duration of a test and points config at an
+// empty home, so runnable() sees the fixture enabled and nothing else.
+func sandbox(t *testing.T, rules []Rule) {
+	t.Helper()
+	writeUserConfig(t, "")
+	saved := registry
+	t.Cleanup(func() { registry = saved })
+	registry = rules
+}
+
+func preEvent() *Event {
+	return &Event{HookEventName: PreToolUse, ToolName: "Bash"}
+}
+
+func TestRunGates(t *testing.T) {
+	t.Run("first non-nil decision wins", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "gate-a", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Gate: func(context.Context, *Event) *Decision {
+					return &Decision{Permission: PermissionDeny, Reason: "first"}
+				}},
+			{ID: "gate-b", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Gate: func(context.Context, *Event) *Decision {
+					return &Decision{Permission: PermissionAllow}
+				}},
+		})
+		if d := RunGates(preEvent()); d == nil || d.Rule != "gate-a" {
+			t.Fatalf("first non-nil gate must win, got %+v", d)
+		}
+	})
+
+	t.Run("a nil defer lets the next gate decide", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "gate-defer", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Gate: func(context.Context, *Event) *Decision { return nil }},
+			{ID: "gate-decide", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Gate: func(context.Context, *Event) *Decision {
+					return &Decision{Permission: PermissionAllow}
+				}},
+		})
+		if d := RunGates(preEvent()); d == nil || d.Rule != "gate-decide" {
+			t.Fatalf("a deferring gate must fall through, got %+v", d)
+		}
+	})
+
+	t.Run("an overrun is abandoned fail-open", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "gate-slow", Events: []EventName{PreToolUse}, EnabledByDefault: true, Timeout: 1,
+				Gate: func(context.Context, *Event) *Decision {
+					time.Sleep(2 * time.Second)
+					return &Decision{Permission: PermissionDeny}
+				}},
+			{ID: "gate-fast", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Gate: func(context.Context, *Event) *Decision {
+					return &Decision{Permission: PermissionAllow}
+				}},
+		})
+		if d := RunGates(preEvent()); d == nil || d.Rule != "gate-fast" {
+			t.Fatalf("an overrunning gate must be skipped, letting the next decide, got %+v", d)
+		}
+	})
+}
+
+func TestRunRewrites(t *testing.T) {
+	t.Run("first non-nil mutation wins", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "rw-a", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Rewrite: func(context.Context, *Event) *Mutation {
+					return &Mutation{UpdatedInput: map[string]any{"n": 1}}
+				}},
+			{ID: "rw-b", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Rewrite: func(context.Context, *Event) *Mutation {
+					return &Mutation{UpdatedInput: map[string]any{"n": 2}}
+				}},
+		})
+		if m := RunRewrites(preEvent()); m == nil || m.Rule != "rw-a" {
+			t.Fatalf("first non-nil rewrite must win, got %+v", m)
+		}
+	})
+
+	t.Run("a nil defer lets the next rewrite apply", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "rw-defer", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Rewrite: func(context.Context, *Event) *Mutation { return nil }},
+			{ID: "rw-apply", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Rewrite: func(context.Context, *Event) *Mutation {
+					return &Mutation{UpdatedInput: map[string]any{"n": 9}}
+				}},
+		})
+		if m := RunRewrites(preEvent()); m == nil || m.Rule != "rw-apply" {
+			t.Fatalf("a deferring rewrite must fall through, got %+v", m)
+		}
+	})
+
+	t.Run("an overrun is abandoned fail-open", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "rw-slow", Events: []EventName{PreToolUse}, EnabledByDefault: true, Timeout: 1,
+				Rewrite: func(context.Context, *Event) *Mutation {
+					time.Sleep(2 * time.Second)
+					return &Mutation{UpdatedInput: map[string]any{"n": 1}}
+				}},
+			{ID: "rw-fast", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Rewrite: func(context.Context, *Event) *Mutation {
+					return &Mutation{UpdatedInput: map[string]any{"n": 2}}
+				}},
+		})
+		if m := RunRewrites(preEvent()); m == nil || m.Rule != "rw-fast" {
+			t.Fatalf("an overrunning rewrite must be skipped, got %+v", m)
+		}
+	})
+}
+
+func TestRunAdvice(t *testing.T) {
+	t.Run("gathers every rule and skips a nil", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "adv-a", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Advise: func(context.Context, *Event) *Advice { return &Advice{Text: "first"} }},
+			{ID: "adv-nil", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Advise: func(context.Context, *Event) *Advice { return nil }},
+			{ID: "adv-b", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Advise: func(context.Context, *Event) *Advice { return &Advice{Text: "second"} }},
+		})
+		got := RunAdvice(preEvent())
+		if len(got) != 2 || got[0].Rule != "adv-a" || got[1].Rule != "adv-b" {
+			t.Fatalf("advice must gather every rule in order, skipping nil, got %+v", got)
+		}
+	})
+
+	t.Run("an overrun is abandoned fail-open", func(t *testing.T) {
+		sandbox(t, []Rule{
+			{ID: "adv-slow", Events: []EventName{PreToolUse}, EnabledByDefault: true, Timeout: 1,
+				Advise: func(context.Context, *Event) *Advice {
+					time.Sleep(2 * time.Second)
+					return &Advice{Text: "late"}
+				}},
+			{ID: "adv-fast", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+				Advise: func(context.Context, *Event) *Advice { return &Advice{Text: "ontime"} }},
+		})
+		got := RunAdvice(preEvent())
+		if len(got) != 1 || got[0].Rule != "adv-fast" {
+			t.Fatalf("an overrunning advice rule must be dropped, got %+v", got)
+		}
+	})
+}
+
 func TestRunWithTimeout(t *testing.T) {
 	if done := runWithTimeout(1, func(context.Context) {}); !done {
 		t.Error("fast fn should finish within its window")
