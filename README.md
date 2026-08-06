@@ -107,6 +107,42 @@ Two are worth expanding on.
 
 **`secret-redact` is the other half.** Once a secret reaches Claude's context it is in the transcript for good. `cat .env`, `env`, a curl response with a bearer token — all of it landed verbatim before. It matches on the literal value rather than reported columns, because column arithmetic breaks the moment output contains multibyte characters, and a *partial* redaction is worse than none since it looks like it worked.
 
+## Rules in action
+
+What each rule looks like when it fires.
+
+**`comments` blocks a bloated or self-narrating comment**, shown in the rendered findings table:
+
+![The comment gate denying an edit whose comment narrates the change](docs/img/comments.png)
+
+**`no-codegen` denies a write to a protected tree** before the tool runs, quoting the repo's own reason:
+
+![no-codegen blocking a write to a vendored file](docs/img/no-codegen.png)
+
+**`secret-scan` stops a credential from leaving in a prompt**, naming the kind and line but never the value:
+
+![secret-scan blocking a prompt that contains a token](docs/img/secret-scan.png)
+
+**`secret-redact` strips a credential out of tool output** before the model ever reads it:
+
+![secret-redact replacing a token in file output with a placeholder](docs/img/secret-redact.png)
+
+**`bash-output` echoes long Bash output in full**, so it is not hidden behind ctrl+o:
+
+![bash-output reprinting a full command result](docs/img/bash-output.png)
+
+**`mermaid-stream` renders a mermaid fence as terminal ASCII**, inline while the text streams:
+
+![mermaid-stream rendering a flowchart as ASCII](docs/img/mermaid-stream.png)
+
+**`lint` hands linter findings to the model as context** rather than blocking the edit:
+
+![lint reporting shellcheck findings](docs/img/lint.png)
+
+**`ollie-hooks doctor` checks the whole setup in one shot**, from config through wiring to the enabled rules:
+
+![doctor printing a green health report](docs/img/doctor.png)
+
 ## Writing a rule
 
 A rule declares the events it runs on and exactly one verb.
