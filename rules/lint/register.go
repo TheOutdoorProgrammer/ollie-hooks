@@ -11,18 +11,28 @@ const RuleID = "lint"
 func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
-		Description: "After an edit, run the file's linter and report what it found (never blocks the edit)",
-		Doc: "Dispatches by file extension to whichever of about ten linters fits, which " +
-			"is why the set is configurable: all-or-nothing enabling would demand every " +
-			"one of those tools from every user.\n" +
-			"Leaving `linters` empty runs whatever happens to be installed; naming one " +
-			"is a commitment, so a named linter that is missing gets reported instead " +
-			"of quietly skipped.\n" +
-			"A package-scoped linter's findings are narrowed to the edited file, so " +
-			"sibling-file noise never reaches the model.",
-		Events: []hook.EventName{hook.PostToolUse},
-		Tools:  []string{"Write", "Edit", "MultiEdit"},
-		Config: defaultConfig(),
-		Advise: adviseLint,
+		Description: "Run the right linter after an edit and tell Claude what it said",
+		Doc: "There are ten or so linters here, picked by file type. That is why you get " +
+			"to choose: turning this on should not mean installing a Swift toolchain " +
+			"because one file in the repo is Swift.\n" +
+			"Leave `linters` empty and it runs whatever you already have. Name one and " +
+			"you have made a commitment, so if it is missing you get told rather than " +
+			"quietly skipped.\n" +
+			"For tools that lint a whole package at a time, like golangci-lint, findings " +
+			"are trimmed down to the file you actually edited. Sibling-file noise never " +
+			"reaches Claude.\n" +
+			"It never blocks the edit. The edit has already happened by the time this " +
+			"runs, so the output is context, not a verdict.\n" +
+			"\n" +
+			"```toml\n" +
+			"[rules.lint]\n" +
+			"enabled = true\n" +
+			"linters = [\"shellcheck\", \"ruff\", \"golangci-lint\"]\n" +
+			"```",
+		Events:   []hook.EventName{hook.PostToolUse},
+		Tools:    []string{"Write", "Edit", "MultiEdit"},
+		Config:   defaultConfig(),
+		DocTable: docTable,
+		Advise:   adviseLint,
 	})
 }

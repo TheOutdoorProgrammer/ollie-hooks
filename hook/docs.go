@@ -6,6 +6,17 @@ import (
 	"strings"
 )
 
+// DocTable is a reference table built from a rule's own data. It exists for
+// lint: "linters" takes a list of names, and nothing else in the config says
+// which names are legal.
+type DocTable struct {
+	Title   string
+	Headers []string
+	Rows    [][]string
+	// Legend is the one-line version, for places a table will not fit.
+	Legend string
+}
+
 // KeyDoc is one configurable key: its TOML name, what it does, and the default
 // the rule actually runs with. Table is non-empty when the key is a nested
 // table, which TOML writes as [[rules.<id>.<key>]].
@@ -50,7 +61,7 @@ func (r Rule) UniversalKeys() []KeyDoc {
 		}
 		keys = append(keys, KeyDoc{
 			Key:     "severity",
-			Doc:     `how findings arrive: "block", "advisory" or "off"`,
+			Doc:     `what findings do: "block" the call, arrive as "advisory" context, or "off"`,
 			Default: string(sev),
 		})
 	}
@@ -60,7 +71,7 @@ func (r Rule) UniversalKeys() []KeyDoc {
 	}
 	return append(keys, KeyDoc{
 		Key:     "timeout",
-		Doc:     "seconds this rule may take before it is abandoned",
+		Doc:     "how many seconds it gets before we give up on it",
 		Default: timeout,
 	})
 }

@@ -76,6 +76,9 @@ type Rule struct {
 	// section over, so documented defaults cannot drift from real ones. Every
 	// exported field needs a toml and a doc tag or Register rejects the rule.
 	Config any
+	// DocTable adds a generated reference table to this rule's docs, for a set
+	// of legal values the config type alone cannot spell out.
+	DocTable func() DocTable
 }
 
 // Advice is non-blocking context for the model. Phrase it as statements of

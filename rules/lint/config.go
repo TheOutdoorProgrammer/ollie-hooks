@@ -2,6 +2,8 @@ package lint
 
 import (
 	"slices"
+	"sort"
+	"strings"
 
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 )
@@ -12,7 +14,7 @@ import (
 type config struct {
 	// A non-empty list is a commitment, which is why a named-but-absent linter
 	// is reported rather than skipped.
-	Linters []string `toml:"linters" doc:"linters to run, by command name; empty means whatever is installed, and a named one that is missing is reported"`
+	Linters []string `toml:"linters" doc:"which linters to run, by command name; empty means every one you have installed"`
 }
 
 // installHints is how to get each linter. Only two are not brew formulae, and
@@ -28,6 +30,7 @@ var installHints = map[string]string{
 	"swiftlint":         "brew install swiftlint",
 	"tofu":              "brew install opentofu",
 	"hadolint":          "brew install hadolint",
+	"zsh":               "already on macOS; apt install zsh elsewhere",
 }
 
 func installHint(cmd string) string {
@@ -49,4 +52,39 @@ func (c config) selected(cmd string) (run, named bool) {
 	}
 	named = slices.Contains(c.Linters, cmd)
 	return named, named
+}
+
+// docTable lists the legal values for `linters`, built from the dispatch table
+// itself so a linter added to one is never missing from the other.
+func docTable() hook.DocTable {
+	files := map[string][]string{}
+	for ext, spec := range lintersByExt {
+		files[spec.cmd] = append(files[spec.cmd], ext)
+	}
+
+	cmds := make([]string, 0, len(files))
+	for cmd := range files {
+		cmds = append(cmds, cmd)
+	}
+	sort.Strings(cmds)
+
+	// Dockerfiles are matched by filename, so they are not in the extension map
+	// and would otherwise be missing from a table claiming to be the whole list.
+	files[dockerfileLinter.cmd] = []string{"Dockerfile", "*.Dockerfile"}
+	cmds = append(cmds, dockerfileLinter.cmd)
+	sort.Strings(cmds)
+
+	rows := make([][]string, 0, len(cmds))
+	for _, cmd := range cmds {
+		exts := files[cmd]
+		sort.Strings(exts)
+		rows = append(rows, []string{"`" + cmd + "`", "`" + strings.Join(exts, "`, `") + "`", installHint(cmd)})
+	}
+
+	return hook.DocTable{
+		Title:   "What it can lint",
+		Headers: []string{"Name to use in `linters`", "Files", "Install"},
+		Rows:    rows,
+		Legend:  "names you can put in linters: " + strings.Join(cmds, ", "),
+	}
 }
