@@ -203,10 +203,27 @@ var eventCaps = map[EventName]eventCap{
 		Verbs: []Verb{VerbDisplay},
 	},
 
-	// Documented as ignoring hook output entirely — a rule here can only log.
+	// Known but unactionable: Claude Code ignores hook output here, or we don't
+	// act on it yet. No Verbs on purpose — registration then panics loudly
+	// instead of silently no-opping at fire time. Absent stays permissive.
 	StopFailure:        {Matcher: matchError},
 	PermissionDenied:   {Matcher: matchTool},
 	InstructionsLoaded: {},
+	Setup:              {},
+	TaskCreated:        {Matcher: matchAgent},
+	TaskCompleted:      {Matcher: matchAgent},
+	TeammateIdle:       {Matcher: matchAgent},
+	DirectoryAdded:     {},
+	WorktreeCreate:     {},
+	WorktreeRemove:     {},
+}
+
+// eventActionable reports whether a rule can register a behaviour on an event.
+// A known event with no Verbs is inert; an unknown event is permissive, since
+// the framework fails open on new events.
+func eventActionable(event EventName) bool {
+	cap, known := eventCaps[event]
+	return !known || len(cap.Verbs) > 0
 }
 
 // eventAllows reports whether an event can express a verb. Unknown events

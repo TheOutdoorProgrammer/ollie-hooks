@@ -194,6 +194,10 @@ func Register(r Rule) {
 		if !knownEvents[ev] {
 			panic("hooks: rule " + r.ID + " registers on unknown event " + string(ev))
 		}
+		if !eventActionable(ev) {
+			panic("hooks: rule " + r.ID + " registers on " + string(ev) +
+				", which delivers no actionable hook output")
+		}
 		if !eventAllows(ev, v) {
 			panic("hooks: rule " + r.ID + " uses " + string(v) + " on " + string(ev) +
 				", which cannot express it")

@@ -56,6 +56,8 @@ type StopFailureData struct {
 }
 
 // StopFailure returns the failed-turn payload, or false on any other event.
+// Currently inert: no rule can register on StopFailure (see eventCaps), so this
+// never returns true in practice. Reserved for when the event is actionable.
 func (e *Event) StopFailure() (StopFailureData, bool) {
 	var d StopFailureData
 	return d, decodeAs(e, StopFailure, &d)
@@ -119,6 +121,8 @@ type FileChangedData struct {
 }
 
 // FileChanged returns the watched-file payload, or false otherwise.
+// Currently inert: no rule can register on FileChanged (see eventCaps), so this
+// never returns true in practice. Reserved for when the event is actionable.
 func (e *Event) FileChanged() (FileChangedData, bool) {
 	var d FileChangedData
 	return d, decodeAs(e, FileChanged, &d)
@@ -130,6 +134,8 @@ type PermissionDeniedData struct {
 }
 
 // PermissionDenied returns the refusal payload, or false otherwise.
+// Currently inert: no rule can register on this event (see eventCaps), so it
+// never returns true. Reserved for when the event becomes actionable.
 func (e *Event) PermissionDenied() (PermissionDeniedData, bool) {
 	var d PermissionDeniedData
 	return d, decodeAs(e, PermissionDenied, &d)

@@ -100,3 +100,29 @@ func TestEveryCappedEventIsKnown(t *testing.T) {
 		}
 	}
 }
+
+// The other half of that contract: a known event with no cap silently accepts
+// any verb and then fails at fire time. Every known event must be capped so the
+// failure lands loudly at registration instead.
+func TestEveryKnownEventIsCapped(t *testing.T) {
+	for ev := range knownEvents {
+		if _, ok := eventCaps[ev]; !ok {
+			t.Errorf("known event %q has no eventCaps entry, so it is silently permissive", ev)
+		}
+	}
+}
+
+// Setup delivers no actionable hook output, so a rule listing it must panic at
+// registration rather than register and quietly never fire.
+func TestRegisterPanicsOnInertEvent(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("a rule on an inert event must panic, not register and never run")
+		}
+	}()
+	Register(Rule{
+		ID:     "test-inert",
+		Events: []EventName{Setup},
+		Check:  func(context.Context, *Event) []Finding { return nil },
+	})
+}
