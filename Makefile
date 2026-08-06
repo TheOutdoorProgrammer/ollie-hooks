@@ -1,7 +1,7 @@
 BIN := $(HOME)/bin/ollie-hooks
 PKG := ./cmd/ollie-hooks
 
-.PHONY: build test vet fmt install
+.PHONY: build test vet fmt install docs
 
 build:
 	go build -o ollie-hooks $(PKG)
@@ -14,6 +14,11 @@ fmt:
 
 test:
 	go test -race ./...
+
+# docs are generated from the registered rules, never hand-edited: the docs
+# and the code cannot disagree if only one of them is written by a person.
+docs:
+	go run ./internal/docsgen
 
 # install refuses to ship a binary that doesn't vet and pass its tests.
 install: vet test

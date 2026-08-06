@@ -26,9 +26,12 @@ func usage(w io.Writer) {
 	_, _ = fmt.Fprint(w, `ollie-hooks — a rule engine for Claude Code hooks.
 
 Usage:
-  ollie-hooks wiring     Print the settings.json entries that wire this up.
-  ollie-hooks version    Print the version.
-  ollie-hooks help       Print this.
+  ollie-hooks rules            What rules exist, and what your config does with them.
+  ollie-hooks config example   A commented config covering every rule.
+  ollie-hooks wiring           The settings.json entries that wire this up.
+  ollie-hooks docs             The markdown rule reference.
+  ollie-hooks version          Print the version.
+  ollie-hooks help             Print this.
 
 With no arguments it reads one hook event as JSON on stdin and writes the
 response envelope on stdout, which is how Claude Code invokes it.
@@ -63,6 +66,17 @@ func main() {
 		switch os.Args[1] {
 		case "wiring":
 			hook.PrintWiring()
+		case "rules":
+			hook.WriteRuleList(os.Stdout)
+		case "docs":
+			hook.WriteRuleDocs(os.Stdout)
+		case "config":
+			if len(os.Args) > 2 && os.Args[2] == "example" {
+				hook.WriteConfigExample(os.Stdout)
+				return
+			}
+			fmt.Fprintln(os.Stderr, "ollie-hooks: usage: ollie-hooks config example")
+			os.Exit(2)
 		case "version", "--version", "-v":
 			fmt.Printf("ollie-hooks %s (%s)\n", version, commit)
 		case "help", "--help", "-h":
