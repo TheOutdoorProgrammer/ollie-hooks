@@ -1,0 +1,12 @@
+# GoReleaser build output.
+/dist/
+
+# Compiled binaries from a local `go build`. A Go binary embeds the build
+# machine's paths unless -trimpath is passed, so these leak $HOME if committed.
+/ollie-hooks
+/ollie-hooks.exe
+/hooks
+
+# Editor and OS noise.
+.DS_Store
+*.swp

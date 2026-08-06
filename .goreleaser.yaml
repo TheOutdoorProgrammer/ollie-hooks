@@ -1,0 +1,121 @@
+version: 2
+
+project_name: ollie-hooks
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: ollie-hooks
+    main: ./cmd/ollie-hooks
+    binary: ollie-hooks
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    flags:
+      # Strips the build machine's paths out of the binary, so the same commit
+      # produces the same bytes here and on someone else's machine.
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    # Predictable names because the install script builds them by hand rather
+    # than parsing the release API.
+    name_template: >-
+      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, NOTICE, README.md, Brewfile]
+
+checksum:
+  name_template: checksums.txt
+
+# Casks, not formulas: `brews` is hard-deprecated as of GoReleaser v2.16.
+homebrew_casks:
+  - name: ollie-hooks
+    binaries: [ollie-hooks]
+    # `auto` skips the upload for a prerelease, so a candidate never becomes
+    # what `brew install ollie-hooks` gives you.
+    skip_upload: auto
+    repository: &tap
+      owner: TheOutdoorProgrammer
+      name: homebrew-tap
+      # Pinned because a freshly created repo has no default branch to detect.
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: &homepage https://github.com/TheOutdoorProgrammer/ollie-hooks
+    description: &description A rule engine for Claude Code hooks
+    # The binary is not signed or notarised, so Gatekeeper quarantines it and
+    # the first run fails with "developer cannot be verified".
+    hooks: &dequarantine
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr",
+              args: ["-dr", "com.apple.quarantine", "#{staged_path}/ollie-hooks"]
+          end
+    # No dependencies listed on purpose: every rule ships disabled and an
+    # enabled rule missing its tool says so. Declaring them would install a
+    # Swift toolchain on someone who writes Python.
+    caveats: &caveats |
+      Nothing runs until you enable it:
+
+        ollie-hooks wiring        # settings.json entries to add
+
+      Rules that shell out name their own tool when it is missing. The
+      Brewfile in the archive installs the full set if you want it.
+
+  # The mirror image of the above: candidates are installable by name, and only
+  # by name. Without this a release candidate is unreachable except by
+  # downloading the archive by hand, which nobody does, so it goes untested.
+  - name: ollie-hooks-rc
+    binaries: [ollie-hooks]
+    skip_upload: '{{ if .Prerelease }}false{{ else }}true{{ end }}'
+    repository: *tap
+    homepage: *homepage
+    description: *description
+    hooks: *dequarantine
+    caveats: *caveats
+    # Both casks install the same binary name, so Homebrew must be told they
+    # cannot coexist rather than letting the second one clobber the first.
+    conflicts:
+      - cask: ollie-hooks
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Fixes
+      regexp: '^fix'
+      order: 1
+    - title: Refactors
+      regexp: '^refactor'
+      order: 2
+    - title: Tests and docs
+      regexp: '^(test|docs)'
+      order: 3
+  filters:
+    exclude:
+      - '^chore'
+      - '^ci'
+
+release:
+  # Marks a -rc tag as a prerelease on GitHub, which keeps it off the "latest"
+  # release the README and install script point at.
+  prerelease: auto
+  footer: |
+    **Install**
+
+    macOS: `brew install TheOutdoorProgrammer/tap/ollie-hooks`
+
+    Linux/Windows: `curl -fsSL https://raw.githubusercontent.com/TheOutdoorProgrammer/ollie-hooks/main/install.sh | sh`

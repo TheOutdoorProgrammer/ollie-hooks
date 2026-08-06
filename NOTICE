@@ -1,0 +1,43 @@
+ollie-hooks includes third-party material. Their licenses and required notices
+follow.
+
+================================================================================
+comment-checker — YeonGyu Kim
+https://github.com/code-yeongyu/go-claude-code-comment-checker
+================================================================================
+
+Portions of rule_comments.go are derived from comment-checker's src/filters.rs
+and src/output.rs, used under the MIT License. Specifically:
+
+  - bddKeywords          <- BDD_KEYWORDS
+  - directivePrefixes    <- DIRECTIVE_PREFIXES
+  - memoPrefixes         <- is_english_agent_memo vocabulary (restructured)
+  - hasBareArrow         <- has_ascii_arrow heuristic
+  - isBDD, isDirective   <- BddFilter, DirectiveFilter
+  - stripMarkers         <- strip_one_prefix, strip_agent_prefixes
+  - commentGuidance      <- the remediation prompt's priority structure
+
+comments_scan.go, the touched-comment diffing, and the configurable thresholds
+are independent work and are not derived from comment-checker.
+
+MIT License
+
+Copyright (c) 2024 YeonGyu Kim
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

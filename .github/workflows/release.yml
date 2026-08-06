@@ -1,0 +1,135 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: What to cut
+        type: choice
+        default: Release
+        options:
+          - Release
+          - Release Candidate
+      bump:
+        description: Which part of the version to bump
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+  # Cross-building on every PR is the point: a break that only shows up on
+  # windows/arm64 is invisible to `go test` on the runner you happen to use.
+  pull_request:
+
+concurrency:
+  group: release-${{ github.ref }}
+  # Cancel superseded PR builds; never cancel a release, which is mid-way
+  # through tagging and publishing.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Releasing from a topic branch produces a tag whose history is not on
+      # main, which is unpickable afterwards.
+      - name: Refuse to release off main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Release from main. This ran on ${{ github.ref }}."
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          # GoReleaser builds its changelog from the commit log and cannot see
+          # one in a shallow clone.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Work out the version
+        id: version
+        run: |
+          git tag --list 'v*' | go run ./internal/nextversion \
+            -bump '${{ inputs.bump }}' \
+            ${{ inputs.scope == 'Release Candidate' && '-candidate' || '' }} \
+            >> "$GITHUB_OUTPUT"
+
+      # Everything above this line is side-effect free, and so is this: a full
+      # cross-build and the test suite, with publishing switched off. A tag is
+      # only worth cutting once we know it can be built.
+      - name: Dry run
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish
+
+      - name: Tag ${{ steps.version.outputs.next }}
+        id: tag
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a '${{ steps.version.outputs.next }}' \
+            -m '${{ steps.version.outputs.next }}'
+          git push origin '${{ steps.version.outputs.next }}'
+
+      # Publishing the cask writes to another repo, which this job's own token
+      # cannot reach. An App token is scoped to that one repo and expires in an
+      # hour, unlike a PAT that lives in settings until someone rotates it.
+      - name: Token for the tap
+        id: tap_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.TAP_APP_ID }}
+          private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: homebrew-tap
+
+      - name: Release
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap_token.outputs.token }}
+          # Pinned because `git describe` picks the wrong tag when a release
+          # and its candidate sit on the same commit.
+          GORELEASER_CURRENT_TAG: ${{ steps.version.outputs.next }}
+
+      # A tag left behind by a failed run burns that version number: the next
+      # attempt computes the one after it, and the failed tag stays forever as
+      # a release that never happened.
+      - name: Untag a failed release
+        if: failure() && steps.tag.outcome == 'success'
+        run: |
+          git push --delete origin '${{ steps.version.outputs.next }}' || true
+          git tag --delete '${{ steps.version.outputs.next }}' || true
