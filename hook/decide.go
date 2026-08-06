@@ -28,6 +28,8 @@ import (
 //     input on PreToolUse, the result on PostToolUse. A blocked call is
 //     therefore never silently rewritten.
 func Decide(ev *Event) (string, error) {
+	// One event per Decide, so last event.s plugin answers must not be reused.
+	broker.reset()
 	// MessageDisplay replaces streamed text and can express nothing else. It is
 	// also the hottest event — once per delta — so it takes the short path and
 	// never pays for the rules it could not use anyway.

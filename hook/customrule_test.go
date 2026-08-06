@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 // countingTransport records how many times a plugin was actually called.
@@ -22,10 +23,11 @@ func (t *countingTransport) call(_ context.Context, payload []byte) ([]byte, err
 func freshBroker(t *testing.T) {
 	t.Helper()
 	saved := broker
-	t.Cleanup(func() { broker = saved })
+	savedRegistry := registry
+	t.Cleanup(func() { broker, registry = saved, savedRegistry })
+	registry = nil
 	broker = &pluginBroker{
-		byKey:   map[string]pluginReply{},
-		failed:  map[string]bool{},
+		entries: map[string]*brokerEntry{},
 		members: map[string][]string{},
 	}
 }
@@ -39,8 +41,8 @@ func TestOneEndpointIsCalledOncePerEvent(t *testing.T) {
 		"b":{"advice":"from b"}}}`}
 
 	const key = "shared-endpoint"
-	broker.join(key, "a")
-	broker.join(key, "b")
+	joinPlugin(t, key, "a")
+	joinPlugin(t, key, "b")
 	ev := &Event{HookEventName: PreToolUse}
 
 	first := broker.response(context.Background(), key, tr, ev, "a")
@@ -61,8 +63,8 @@ func TestOneEndpointIsCalledOncePerEvent(t *testing.T) {
 func TestRequestNamesEveryRule(t *testing.T) {
 	freshBroker(t)
 	tr := &countingTransport{reply: `{}`}
-	broker.join("k", "one")
-	broker.join("k", "two")
+	joinPlugin(t, "k", "one")
+	joinPlugin(t, "k", "two")
 
 	broker.response(context.Background(), "k", tr, &Event{HookEventName: PreToolUse}, "one")
 	if len(tr.asked) != 1 {
@@ -152,5 +154,78 @@ func TestCustomRuleRejectsAMissingCommand(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error should say what is missing, got: %v", err)
+	}
+}
+
+// joinPlugin wires a stub rule into both the registry and the broker, the way
+// RegisterCustomRules does. Joining without registering would leave the rule
+// invisible to the per-event filtering.
+func joinPlugin(t *testing.T, key, id string, events ...EventName) {
+	t.Helper()
+	if len(events) == 0 {
+		events = []EventName{PreToolUse}
+	}
+	registry = append(registry, Rule{
+		ID: id, Events: events,
+		Check: func(context.Context, *Event) []Finding { return nil },
+	})
+	broker.join(key, id)
+}
+
+// The request names the roles being asked for THIS event, not every role the
+// endpoint serves. A plugin handling a PreToolUse check and a PostToolUse
+// rewrite should not be told about both on every event.
+func TestRequestNamesOnlyTheRulesThisEventAsksFor(t *testing.T) {
+	freshBroker(t)
+	tr := &countingTransport{reply: `{}`}
+	joinPlugin(t, "k", "pre-rule", PreToolUse)
+	joinPlugin(t, "k", "post-rule", PostToolUse)
+
+	broker.response(context.Background(), "k", tr, &Event{HookEventName: PreToolUse}, "pre-rule")
+
+	if len(tr.asked) != 1 {
+		t.Fatalf("want one request, got %d", len(tr.asked))
+	}
+	if !strings.Contains(tr.asked[0], `"pre-rule"`) {
+		t.Errorf("request should name the rule being asked: %s", tr.asked[0])
+	}
+	if strings.Contains(tr.asked[0], `"post-rule"`) {
+		t.Errorf("request named a rule this event never fires: %s", tr.asked[0])
+	}
+}
+
+// The memo is per event. Reusing it across events would replay the first
+// event's answers, which is what an embedder calling Decide twice would hit.
+func TestBrokerForgetsBetweenEvents(t *testing.T) {
+	freshBroker(t)
+	tr := &countingTransport{reply: `{}`}
+	joinPlugin(t, "k", "r")
+	ev := &Event{HookEventName: PreToolUse}
+
+	broker.response(context.Background(), "k", tr, ev, "r")
+	broker.response(context.Background(), "k", tr, ev, "r")
+	if tr.calls != 1 {
+		t.Fatalf("same event should cost one call, got %d", tr.calls)
+	}
+
+	broker.reset()
+	broker.response(context.Background(), "k", tr, ev, "r")
+	if tr.calls != 2 {
+		t.Errorf("a new event must call again, got %d call(s)", tr.calls)
+	}
+}
+
+// A rule with a short timeout must not cut short the shared call that a
+// patient sibling is also waiting on.
+func TestSharedBudgetTakesTheLongestTimeout(t *testing.T) {
+	writeUserConfig(t, `
+[rules.quick]
+timeout = 1
+
+[rules.patient]
+timeout = 30
+`)
+	if got := sharedBudget([]string{"quick", "patient"}); got != 30*time.Second {
+		t.Errorf("shared budget = %v, want the most generous member's 30s", got)
 	}
 }
