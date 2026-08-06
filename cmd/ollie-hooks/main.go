@@ -31,6 +31,7 @@ Usage:
   ollie-hooks wiring           The settings.json entries that wire this up.
   ollie-hooks wiring --check   Diff the wiring against settings.json; fail on drift.
   ollie-hooks doctor           Diagnose your setup; exit non-zero if anything is off.
+  ollie-hooks fire <Event>     Simulate an event; print its trace and envelope.
   ollie-hooks trust [dir]      Apply this repo's .ollie-hooks.toml config.
   ollie-hooks untrust [dir]    Stop applying this repo's project config.
   ollie-hooks docs             The markdown rule reference.
@@ -82,6 +83,8 @@ func main() {
 			}
 		case "rules":
 			hook.WriteRuleList(os.Stdout)
+		case "fire":
+			os.Exit(hook.Fire(os.Args[2:], os.Stdout))
 		case "docs":
 			hook.WriteRuleDocs(os.Stdout)
 		case "config":
