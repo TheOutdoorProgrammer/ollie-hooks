@@ -52,9 +52,12 @@ enabled  = true
 severity = "advisory"        # block | advisory | off
 ```
 
-`severity` is the user's, not the rule author's.
+[config.example.toml](config.example.toml) is the whole thing with every rule, every key and every default in it, commented out.
+Copy it to `~/.config/ollie-hooks/config.toml` and uncomment what you want, or run `ollie-hooks config example` to print it.
+
+`severity` is yours, not the rule author's.
 A rule reports what it found; you decide whether that blocks the call, arrives as context, or is ignored.
-`timeout` works the same way — a linter that is fast on one repo is slow on a monorepo, and only you know which.
+`timeout` works the same way. A linter that is fast on one repo is slow on a monorepo, and only you know which.
 
 ## The rules
 

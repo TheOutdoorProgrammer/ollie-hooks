@@ -14,6 +14,7 @@ import (
 
 const (
 	referencePath = "docs/rules.md"
+	examplePath   = "config.example.toml"
 	readmePath    = "README.md"
 	readmeMarker  = "ollie-hooks:rules"
 )
@@ -24,6 +25,12 @@ func main() {
 	var reference bytes.Buffer
 	hook.WriteRuleDocs(&reference)
 	write(referencePath, reference.Bytes())
+
+	// Committed as well as printable, so it can be read on the repo page by
+	// someone deciding whether to install this at all.
+	var example bytes.Buffer
+	hook.WriteConfigExample(&example)
+	write(examplePath, example.Bytes())
 
 	var summary bytes.Buffer
 	hook.WriteRuleSummary(&summary)

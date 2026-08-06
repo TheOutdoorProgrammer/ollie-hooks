@@ -1,0 +1,176 @@
+# ollie-hooks config. Save this to ~/.config/ollie-hooks/config.toml.
+#
+# It is all commented out, because nothing runs until you say so.
+# Uncomment a [rules.<id>] block to turn that rule on.
+#
+# The values shown are the real defaults, so you only need the lines you
+# actually want to change.
+
+# ────────────────────────────────────────────────────────────────────────
+# no-codegen — Stop Claude writing to directories you have marked off-limits
+# Out of the box this protects nothing. Which projects refuse AI-authored code
+# is your call, and any list shipped here would be a guess about someone
+# else's licence.
+# Matching is a plain substring against the full path. Blunt on purpose, but
+# worth knowing: `match = "opentofu"` also blocks a directory called
+# `not-opentofu-notes`.
+# Write a real `reason`. It is what Claude gets told, and "you may not edit
+# this" helps nobody.
+#
+# [rules.no-codegen]
+# enabled            = false                # turn the rule on
+# severity           = "block"              # what findings do: "block" the call, arrive as "advisory" context, or "off"
+# timeout            = 15                   # how many seconds it gets before we give up on it
+#
+# [[rules.no-codegen.paths]]   # one table per protected tree
+# match              = ""                   # substring to look for in the full path
+# reason             = ""                   # shown when it blocks, so say why this tree is off-limits
+
+# ────────────────────────────────────────────────────────────────────────
+# secret-scan — Catch a credential in your prompt and stop it before it is sent
+# `UserPromptSubmit` is the only event that can stop text before it reaches
+# the API. By `PreToolUse` the prompt has already gone, and a commit-time
+# secret scanner never sees chat at all. This is the last place to catch a
+# pasted key.
+# Findings tell you the kind and the line, never the value. Printing the
+# secret into the block reason would drop it straight back into the transcript
+# this rule exists to keep it out of.
+# This one fails closed. If the scan times out you get told, because a prompt
+# nobody scanned is exactly the outcome the rule is here to prevent.
+#
+# [rules.secret-scan]
+# enabled            = false                # turn the rule on
+# severity           = "block"              # what findings do: "block" the call, arrive as "advisory" context, or "off"
+# timeout            = 15                   # how many seconds it gets before we give up on it
+# binary             = "betterleaks"        # which scanner to run
+# redact             = 100                  # how much of a matched secret to hide, as a percent
+
+# ────────────────────────────────────────────────────────────────────────
+# secret-redact — Strip credentials out of tool output before Claude ever sees them
+# The other half of `secret-scan`. That one watches what you type; this one
+# watches what your tools hand back. `cat .env`, `env`, a curl response with a
+# bearer token in it.
+# Once a secret is in Claude's context it is in the transcript for good, and
+# nothing downstream gets it back.
+# It matches the literal value rather than the column offsets the scanner
+# reports. Column arithmetic falls apart the moment output has multibyte
+# characters in it, and a half-redacted secret is worse than none because it
+# looks like it worked.
+#
+# [rules.secret-redact]
+# enabled            = false                # turn the rule on
+# timeout            = 15                   # how many seconds it gets before we give up on it
+# binary             = "betterleaks"        # which scanner to run
+# tools              = ["Bash"]             # tools whose output is scanned
+
+# ────────────────────────────────────────────────────────────────────────
+# lint — Run the right linter after an edit and tell Claude what it said
+# There are ten or so linters here, picked by file type. That is why you get
+# to choose: turning this on should not mean installing a Swift toolchain
+# because one file in the repo is Swift.
+# Leave `linters` empty and it runs whatever you already have. Name one and
+# you have made a commitment, so if it is missing you get told rather than
+# quietly skipped.
+# For tools that lint a whole package at a time, like golangci-lint, findings
+# are trimmed down to the file you actually edited. Sibling-file noise never
+# reaches Claude.
+# It never blocks the edit. The edit has already happened by the time this
+# runs, so the output is context, not a verdict.
+# names you can put in linters: golangci-lint, hadolint, markdownlint-cli2,
+# ruff, selene, shellcheck, swiftlint, tofu, yamllint, zsh
+#
+# [rules.lint]
+# enabled            = false                # turn the rule on
+# timeout            = 15                   # how many seconds it gets before we give up on it
+# linters            = []                   # which linters to run, by command name; empty means every one you have installed
+
+# ────────────────────────────────────────────────────────────────────────
+# comments — Flag bloated or self-narrating comments your change touched
+# Only comments your edit actually touched get flagged. A file full of old
+# prose stays quiet until you go near it.
+# The three triggers are length, line width, and comments that narrate the
+# change instead of explaining the code. "Changed X to Y" is git's job.
+# BDD markers, linter directives, shebangs and package doc comments are all
+# exempt.
+# Advisory by default, because comment style is an opinion and blocking on an
+# opinion is obnoxious. Set `severity` if you want it enforced.
+#
+# [rules.comments]
+# enabled            = false                # turn the rule on
+# severity           = "advisory"           # what findings do: "block" the call, arrive as "advisory" context, or "off"
+# timeout            = 15                   # how many seconds it gets before we give up on it
+# max_comment_lines  = 3                    # flag comment blocks taller than this
+# max_line_length    = 80                   # flag comment lines longer than this (runes, not bytes)
+# agent_memo         = true                 # flag comments narrating the change itself (changed X to Y, Note:)
+
+# ────────────────────────────────────────────────────────────────────────
+# bash-output — Print long Bash output in full instead of making you hit ctrl+o
+# Claude Code hides long Bash output behind ctrl+o. This prints the whole
+# thing on screen instead.
+# It only changes what you see. The transcript and Claude's own context keep
+# the original either way, so nothing here can lose output.
+# A failed command gets its own colour, which is usually the one you were
+# scrolling for.
+#
+# [rules.bash-output]
+# enabled            = false                # turn the rule on
+# timeout            = 15                   # how many seconds it gets before we give up on it
+# min_lines          = 5                    # only reprint output at least this many lines long
+# command_color      = "50fa7b"             # hex colour for the command line; empty for no colour
+# failed_color       = "ff5555"             # hex colour for output of a command that failed
+# output_color       = "f8f8f2"             # hex colour for ordinary output
+
+# ────────────────────────────────────────────────────────────────────────
+# mermaid-stream — Render mermaid fences as terminal ASCII, inline while text streams
+# It renders while the message is still streaming, so the diagram shows up in
+# place rather than arriving after the text it belongs to.
+# Claude Code's `verbose` setting has to be off. Verbose prints the original
+# text, which makes this look like it is doing nothing. That trips people up
+# more than anything else here.
+# Only `graph` and `flowchart`, `sequenceDiagram` and `erDiagram` parse at
+# all. Anything else, or anything wider than `width_cap`, keeps its fence and
+# is left alone.
+#
+# [rules.mermaid-stream]
+# enabled            = false                # turn the rule on
+# timeout            = 15                   # how many seconds it gets before we give up on it
+# width_cap          = 120                  # give up and keep the fence past this many columns
+# binary             = "mermaid-ascii"      # which renderer to run
+
+# ────────────────────────────────────────────────────────────────────────
+# prose-wrap — Flag markdown your change hard-wrapped mid-sentence
+# One sentence per line keeps a diff down to the sentence that changed. Hard
+# wrapping means editing one sentence reflows every line after it, and the
+# real change gets buried in the noise.
+# Only lines your change touched are flagged. Code blocks and tables are never
+# prose.
+# Advisory by default. Plenty of people hard-wrap at 80 and are perfectly
+# happy, so this is a house style rather than a correctness rule.
+#
+# [rules.prose-wrap]
+# enabled            = false                # turn the rule on
+# severity           = "advisory"           # what findings do: "block" the call, arrive as "advisory" context, or "off"
+# timeout            = 15                   # how many seconds it gets before we give up on it
+# ignore_paths       = []                   # skip any path containing one of these
+# extensions         = [".md", ".markdown"] # file extensions this applies to
+# max_reported       = 10                   # stop listing wrapped lines after this many
+
+# ────────────────────────────────────────────────────────────────────────
+# Output formatting, shared by every rule.
+#
+# [output]
+# wrap_width = 100   # findings-table width; a hook cannot detect the terminal
+
+# ────────────────────────────────────────────────────────────────────────
+# Rules in another process, speaking JSON on stdin and stdout.
+# verb is a capability: it picks which reply field is read, so a plugin
+# enabled to advise cannot start denying your tool calls after an update.
+#
+# [custom_rules.my-policy]
+# enabled     = true
+# startup_cmd = "/absolute/path/to/policy.py"   # spawned per event
+# server_url  = "http://127.0.0.1:9000/hook"    # or an already-running one
+# verb        = "Check"                         # Check|Advise|Gate|Rewrite|Display
+# events      = ["PreToolUse"]
+# tools       = ["Bash"]
+# timeout     = 15
