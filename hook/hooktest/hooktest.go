@@ -7,11 +7,15 @@
 package hooktest
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 )
@@ -135,4 +139,74 @@ func Messages(findings []hook.Finding) string {
 		msgs = append(msgs, f.Rule+": "+f.Message)
 	}
 	return strings.Join(msgs, " | ")
+}
+
+// AssertConfigDocumented checks the generated example against every registered
+// rule, in both directions: each documented key must decode into that rule's
+// config, and each rule must have no decodable key the docs never mention.
+//
+// This is the check prose review cannot do. A key renamed in a struct tag, or
+// added without a doc tag, produces docs that read perfectly and describe a
+// config nobody can use.
+func AssertConfigDocumented(t *testing.T) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	hook.WriteConfigExample(&buf)
+	live := hook.UncommentExample(buf.String())
+
+	var root struct {
+		Rules       map[string]toml.Primitive  `toml:"rules"`
+		Output      toml.Primitive             `toml:"output"`
+		CustomRules map[string]hook.CustomRule `toml:"custom_rules"`
+	}
+	md, err := toml.Decode(live, &root)
+	if err != nil {
+		t.Fatalf("generated example is not valid TOML: %v\n%s", err, live)
+	}
+
+	// Framework-owned sections, decoded so they do not read as undocumented.
+	var output struct {
+		WrapWidth int `toml:"wrap_width"`
+	}
+	if err := md.PrimitiveDecode(root.Output, &output); err != nil {
+		t.Errorf("[output] does not decode: %v", err)
+	}
+
+	for _, r := range hook.Registered() {
+		section, ok := root.Rules[r.ID]
+		if !ok {
+			t.Errorf("%s: no [rules.%s] section in the generated example", r.ID, r.ID)
+			continue
+		}
+
+		// enabled/severity/timeout belong to the framework, not to the rule's
+		// own struct, so they need decoding separately or they look stray.
+		var universal struct {
+			Enabled  *bool   `toml:"enabled"`
+			Severity *string `toml:"severity"`
+			Timeout  *int    `toml:"timeout"`
+		}
+		if err := md.PrimitiveDecode(section, &universal); err != nil {
+			t.Errorf("%s: universal keys do not decode: %v", r.ID, err)
+		}
+
+		if r.Config == nil {
+			continue
+		}
+		// A fresh zero value, not r.Config: decoding into the defaults would
+		// hide a key that silently fails to apply.
+		fresh := reflect.New(reflect.TypeOf(r.Config))
+		if err := md.PrimitiveDecode(section, fresh.Interface()); err != nil {
+			t.Errorf("%s: documented config does not decode: %v", r.ID, err)
+		}
+	}
+
+	if undecoded := md.Undecoded(); len(undecoded) > 0 {
+		var stray []string
+		for _, k := range undecoded {
+			stray = append(stray, k.String())
+		}
+		t.Errorf("the example documents keys nothing reads: %s", strings.Join(stray, ", "))
+	}
 }
