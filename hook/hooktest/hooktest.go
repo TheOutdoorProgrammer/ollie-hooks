@@ -110,6 +110,26 @@ func MessageDisplay(sessionID, messageID, delta string, final bool) *hook.Event 
 	}
 }
 
+// UserPromptSubmit builds a prompt event: the one place a rule can stop text
+// before the model ever sees it.
+func UserPromptSubmit(t *testing.T, prompt string) *hook.Event {
+	t.Helper()
+	return &hook.Event{HookEventName: "UserPromptSubmit", Prompt: prompt}
+}
+
+// Stop builds an end-of-turn event holding the finished assistant message, so a
+// rule reads a whole turn without touching the transcript.
+func Stop(t *testing.T, lastAssistantMessage string) *hook.Event {
+	t.Helper()
+	return &hook.Event{HookEventName: "Stop", LastAssistantMessage: lastAssistantMessage}
+}
+
+// SubagentStop is the teammate-scoped twin of Stop.
+func SubagentStop(t *testing.T, lastAssistantMessage string) *hook.Event {
+	t.Helper()
+	return &hook.Event{HookEventName: "SubagentStop", LastAssistantMessage: lastAssistantMessage}
+}
+
 // AssertClean fails when any finding fired.
 func AssertClean(t *testing.T, findings []hook.Finding) {
 	t.Helper()
@@ -130,6 +150,23 @@ func AssertFinding(t *testing.T, findings []hook.Finding, want string) {
 		}
 	}
 	t.Errorf("no finding contained %q, got: %s", want, Messages(findings))
+}
+
+// AssertDenied fails unless the rules block ev. It drives Decide, so it proves
+// the block lands, not just that a finding fired.
+func AssertDenied(t *testing.T, ev *hook.Event) {
+	t.Helper()
+	out, err := hook.Decide(ev)
+	if err != nil {
+		t.Fatalf("Decide(%s) errored: %v", ev.HookEventName, err)
+	}
+	// PreToolUse denies through permissionDecision; the rest block through the
+	// top-level decision. Either shape counts as denied.
+	if strings.Contains(out, `"permissionDecision":"deny"`) ||
+		strings.Contains(out, `"decision":"block"`) {
+		return
+	}
+	t.Errorf("expected a blocking denial for %s, got %q", ev.HookEventName, out)
 }
 
 // Messages joins finding messages for failure output.
