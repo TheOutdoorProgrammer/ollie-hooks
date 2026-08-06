@@ -188,8 +188,14 @@ func shebangIsZsh(path string) bool {
 // caller treats that as fail-open. Exit 0 means clean; any non-zero exit means
 // problems, whose output lines are returned (filtered unless spec.raw).
 func runLinter(ctx context.Context, spec linterSpec, path string) (issues []string, ran bool) {
-	ctx, cancel := context.WithTimeout(ctx, lintTimeout)
-	defer cancel()
+	// Only when the caller set no deadline. The framework already bounds a rule
+	// by its configured timeout, and clamping again here made `timeout = 60` on
+	// a monorepo do nothing: golangci-lint still died at ten seconds.
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, lintTimeout)
+		defer cancel()
+	}
 
 	args := append([]string{}, spec.args...)
 	if spec.dynArgs != nil {
