@@ -6,7 +6,7 @@ comment-checker — YeonGyu Kim
 https://github.com/code-yeongyu/go-claude-code-comment-checker
 ================================================================================
 
-Portions of rule_comments.go are derived from comment-checker's src/filters.rs
+Portions of rules/comments/comments.go are derived from comment-checker's src/filters.rs
 and src/output.rs, used under the MIT License. Specifically:
 
   - bddKeywords          <- BDD_KEYWORDS
@@ -17,7 +17,7 @@ and src/output.rs, used under the MIT License. Specifically:
   - stripMarkers         <- strip_one_prefix, strip_agent_prefixes
   - commentGuidance      <- the remediation prompt's priority structure
 
-comments_scan.go, the touched-comment diffing, and the configurable thresholds
+rules/comments/scan.go, the touched-comment diffing, and the configurable thresholds
 are independent work and are not derived from comment-checker.
 
 MIT License
