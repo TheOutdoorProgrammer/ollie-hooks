@@ -169,3 +169,61 @@ func TestNonGoCommentsAreNotHeaders(t *testing.T) {
 		t.Error("a shell comment cannot be a package header")
 	}
 }
+
+// A triple-quoted string is a value, not a comment. Treating every one as a
+// docstring flagged multi-line SQL and templates as bloated prose, which is
+// the fastest way to make a Python user turn the rule off.
+func TestTripleQuotedStringIsNotAComment(t *testing.T) {
+	src := "sql = \"\"\"\nSELECT one\nFROM two\nWHERE three\nAND four\n\"\"\"\n"
+	if got := scanComments(src, syntaxByExt[".py"]); len(got) != 0 {
+		t.Errorf("an assigned triple-quoted string is not a comment, got %d: %+v", len(got), got)
+	}
+}
+
+func TestIndentedTripleQuotedStringIsNotAComment(t *testing.T) {
+	src := "def q():\n    return \"\"\"\n    SELECT 1\n    FROM t\n    WHERE x\n    \"\"\"\n"
+	if got := scanComments(src, syntaxByExt[".py"]); len(got) != 0 {
+		t.Errorf("a returned literal is not a comment, got %d: %+v", len(got), got)
+	}
+}
+
+// A docstring opening a line is still a docstring.
+func TestFunctionDocstringIsStillAComment(t *testing.T) {
+	src := "def f():\n    \"\"\"Do the thing.\"\"\"\n    return 1\n"
+	got := scanComments(src, syntaxByExt[".py"])
+	if len(got) != 1 {
+		t.Fatalf("want 1 docstring, got %d: %+v", len(got), got)
+	}
+	if got[0].fileHeader {
+		t.Error("a function docstring is not the file's front page")
+	}
+}
+
+// A module docstring is Python's package doc, and Go's is already exempt.
+func TestModuleDocstringIsAFileHeader(t *testing.T) {
+	src := "\"\"\"This module does a thing.\n\nWith several lines of explanation.\nAnd more.\n\"\"\"\n\nimport os\n"
+	got := scanComments(src, syntaxByExt[".py"])
+	if len(got) != 1 {
+		t.Fatalf("want 1 docstring, got %d", len(got))
+	}
+	if !got[0].fileHeader {
+		t.Error("a module docstring should be exempt the way a package doc is")
+	}
+}
+
+func TestModuleDocstringAfterAShebangIsStillAHeader(t *testing.T) {
+	src := "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"Module docs.\n\nMore.\n\"\"\"\n"
+	got := scanComments(src, syntaxByExt[".py"])
+	var doc *scannedComment
+	for i := range got {
+		if got[i].kind == docstring {
+			doc = &got[i]
+		}
+	}
+	if doc == nil {
+		t.Fatal("expected the docstring to be found")
+	}
+	if !doc.fileHeader {
+		t.Error("a shebang and encoding line before it should not disqualify it")
+	}
+}

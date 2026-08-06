@@ -132,6 +132,20 @@ var syntaxByExt = func() map[string]langSyntax {
 // precedesPackageClause reports whether the next code after off is a package
 // clause. Blank lines are skipped so a licence header separated from the
 // clause counts too — nagging about either is wrong.
+// opensTheFile reports a comment with nothing but blank lines, a shebang or an
+// encoding line before it. A Python module docstring is the same thing as a Go
+// package doc — the file's front page, and prose by convention.
+func opensTheFile(src string, start int) bool {
+	for _, line := range strings.Split(src[:start], "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func precedesPackageClause(src string, off int) bool {
 	if off >= len(src) {
 		return false
@@ -187,7 +201,12 @@ func scanComments(src string, syn langSyntax) []scannedComment {
 
 		if d, ok := matchDelim(src, i, syn.doc); ok {
 			text, ni, nl := consumeBlock(src, i, d, line)
-			appendComment(line, i, ni, text, docstring, leading)
+			// Only a docstring when it opens the line. `sql = """SELECT ..."""`
+			// is a string literal, and treating every triple quote as a comment
+			// flagged multi-line SQL and templates as bloated prose.
+			if leading {
+				appendComment(line, i, ni, text, docstring, leading)
+			}
 			i, line = ni, nl
 			continue
 		}
@@ -214,7 +233,10 @@ func scanComments(src string, syn langSyntax) []scannedComment {
 		i++
 	}
 	for k := range out {
-		out[k].fileHeader = precedesPackageClause(src, out[k].endByte)
+		// Either shape of file front page: a Go comment above the package
+		// clause, or a module docstring opening the file.
+		out[k].fileHeader = precedesPackageClause(src, out[k].endByte) ||
+			(out[k].kind == docstring && opensTheFile(src, out[k].startByte))
 	}
 	return out
 }
