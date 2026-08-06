@@ -3,7 +3,6 @@ package secretscan
 import (
 	"context"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -25,9 +24,7 @@ func TestMain(m *testing.M) {
 
 func requireScanner(t *testing.T) {
 	t.Helper()
-	if _, err := exec.LookPath(defaultConfig().Binary); err != nil {
-		t.Skip("betterleaks not installed")
-	}
+	hooktest.RequireBinary(t, defaultConfig().Binary)
 }
 
 func promptEvent(text string) *hook.Event {
@@ -82,11 +79,23 @@ func TestMissingScannerBlocksLoudly(t *testing.T) {
 	hooktest.AssertFinding(t, got, "not installed")
 }
 
-func TestParseLeaksIgnoresJunk(t *testing.T) {
+// Output that is not a report means the scan failed, NOT that the prompt was
+// clean. Treating junk as "no findings" turned every crash into a silent pass.
+func TestParseLeaksRejectsJunk(t *testing.T) {
 	for _, in := range []string{"", "   ", "not json", "{}", "INF scanned 12 bytes"} {
-		if got := parseLeaks(in); got != nil {
-			t.Errorf("parseLeaks(%q) = %v, want nil", in, got)
+		if _, readable := parseLeaks(in); readable {
+			t.Errorf("parseLeaks(%q) reported a readable report", in)
 		}
+	}
+}
+
+func TestParseLeaksAcceptsAnEmptyReport(t *testing.T) {
+	leaks, readable := parseLeaks("[]")
+	if !readable {
+		t.Fatal("[] is a valid report meaning nothing was found")
+	}
+	if len(leaks) != 0 {
+		t.Errorf("got %v, want no leaks", leaks)
 	}
 }
 

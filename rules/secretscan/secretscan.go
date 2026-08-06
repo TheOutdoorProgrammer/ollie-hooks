@@ -46,32 +46,46 @@ func checkSecrets(ctx context.Context, ev *hook.Event) []hook.Finding {
 		"stdin", "--no-banner", "--redact="+strconv.Itoa(cfg.Redact),
 		"--report-format", "json", "--report-path", "-")
 	if !ok {
-		return []hook.Finding{{Message: `
-			` + cfg.Binary + ` could not be run, so this prompt was NOT scanned
-			for credentials. Fix the tool or disable the secret-scan rule —
-			failing quietly here would defeat the point of the check.`}}
+		return unscanned(cfg.Binary, "could not be run")
+	}
+	// betterleaks exits 0 clean and 1 when it finds something. Any other code is
+	// the scanner failing, which must not read the same as a clean prompt.
+	if res.ExitCode != 0 && res.ExitCode != 1 {
+		return unscanned(cfg.Binary, "exited "+strconv.Itoa(res.ExitCode))
 	}
 
-	leaks := parseLeaks(res.Stdout)
+	leaks, readable := parseLeaks(res.Stdout)
+	if !readable {
+		return unscanned(cfg.Binary, "produced a report that could not be read")
+	}
 	if len(leaks) == 0 {
 		return nil
 	}
 	return []hook.Finding{{Message: describe(leaks)}}
 }
 
-// parseLeaks reads betterleaks' JSON report. Unparseable output is treated as
-// no finding: the exit code alone cannot say what was found, and inventing a
-// block from an unreadable report would be worse than missing one.
-func parseLeaks(out string) []leak {
+// unscanned is the fail-closed report. A prompt nobody scanned has to look
+// different from a clean one, or every failure mode of the scanner silently
+// becomes a pass.
+func unscanned(binary, what string) []hook.Finding {
+	return []hook.Finding{{Message: `
+		` + binary + ` ` + what + `, so this prompt was NOT scanned for
+		credentials. Fix the tool or disable the secret-scan rule — failing
+		quietly here would defeat the point of the check.`}}
+}
+
+// parseLeaks reads the scanner's JSON report. readable is false when the output
+// is not a report at all, which is a failed scan rather than a clean one: this
+// rule exists to catch secrets, so unreadable must never read as "none found".
+func parseLeaks(out string) (leaks []leak, readable bool) {
 	out = strings.TrimSpace(out)
 	if out == "" || !strings.HasPrefix(out, "[") {
-		return nil
+		return nil, false
 	}
-	var leaks []leak
 	if err := json.Unmarshal([]byte(out), &leaks); err != nil {
-		return nil
+		return nil, false
 	}
-	return leaks
+	return leaks, true
 }
 
 // describe names what was found and where, never the value. Repeating the
