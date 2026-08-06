@@ -5,8 +5,8 @@ import "github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 // config tunes the mermaid rules. WidthCap exists because mermaid-ascii has no
 // max-width logic: past it a render is wrapped noise, so the fence is kept.
 type config struct {
-	WidthCap int    `toml:"width_cap"`
-	Binary   string `toml:"binary"`
+	WidthCap int    `toml:"width_cap" doc:"keep the fence rather than render wider than this many columns"`
+	Binary   string `toml:"binary" doc:"the renderer executable"`
 }
 
 func defaultConfig() config {

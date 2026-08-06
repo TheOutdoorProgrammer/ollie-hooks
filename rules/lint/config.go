@@ -10,10 +10,9 @@ import (
 // extension, so all-or-nothing enabling would demand every one of them from
 // every user.
 type config struct {
-	// Linters names the active tools by command. Empty means "whatever is
-	// installed"; a non-empty list is a commitment, so a missing entry is
-	// reported rather than skipped.
-	Linters []string `toml:"linters"`
+	// A non-empty list is a commitment, which is why a named-but-absent linter
+	// is reported rather than skipped.
+	Linters []string `toml:"linters" doc:"linters to run, by command name; empty means whatever is installed, and a named one that is missing is reported"`
 }
 
 // installHints is how to get each linter. Only two are not brew formulae, and

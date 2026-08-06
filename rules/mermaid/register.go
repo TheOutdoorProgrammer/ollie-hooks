@@ -10,8 +10,15 @@ const RuleID = "mermaid-stream"
 func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
-		Description: "Render ```mermaid fences as ASCII inline while text streams (needs verbose:false)",
-		Events:      []hook.EventName{hook.MessageDisplay},
-		Display:     displayMermaidStream,
+		Description: "Render mermaid fences as terminal ASCII, inline while text streams",
+		Doc: "Renders as the message streams, so a diagram appears inline rather than " +
+			"after the fact.\n" +
+			"Needs Claude Code's `verbose` setting OFF — verbose shows the original " +
+			"text, which makes this rule look broken.\n" +
+			"Only `graph`/`flowchart`, `sequenceDiagram` and `erDiagram` parse; anything " +
+			"else, or anything wider than `width_cap`, keeps its fence unchanged.",
+		Events:  []hook.EventName{hook.MessageDisplay},
+		Config:  defaultConfig(),
+		Display: displayMermaidStream,
 	})
 }

@@ -12,8 +12,13 @@ func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
 		Description: "Re-print a collapsed Bash result in full, so it needs no ctrl+o",
-		Events:      []hook.EventName{hook.PostToolUse, hook.PostToolUseFailure},
-		Tools:       []string{"Bash"},
-		Display:     displayBashOutput,
+		Doc: "Claude Code collapses long Bash output behind ctrl+o; this prints it in " +
+			"full on screen instead.\n" +
+			"Display-only, so the transcript and the model's own context keep the " +
+			"original either way.",
+		Events:  []hook.EventName{hook.PostToolUse, hook.PostToolUseFailure},
+		Tools:   []string{"Bash"},
+		Config:  defaultConfig(),
+		Display: displayBashOutput,
 	})
 }

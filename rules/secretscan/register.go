@@ -10,9 +10,17 @@ const RuleID = "secret-scan"
 // been sent, and a commit-time gate never sees a pasted one at all.
 func Register() {
 	hook.Register(hook.Rule{
-		ID:               RuleID,
-		Description:      "Scan the prompt for credentials and block before it is sent",
+		ID:          RuleID,
+		Description: "Scan the prompt for credentials and block before it is sent",
+		Doc: "UserPromptSubmit is the only event that can stop text before it reaches " +
+			"the API, so this is the last point a pasted credential can still be " +
+			"caught — PreToolUse is already too late, and a commit-time gate never " +
+			"sees chat at all.\n" +
+			"Findings name the kind and line, never the value: repeating a secret into " +
+			"the block reason would put it straight back into the transcript this rule " +
+			"exists to keep it out of.",
 		Events:           []hook.EventName{hook.UserPromptSubmit},
+		Config:           defaultConfig(),
 		Check:            checkSecrets,
 		RequiresBinaries: []hook.Binary{{Bin: "betterleaks", Install: "brew install betterleaks"}},
 		// An unscanned prompt is the outcome this rule exists to prevent, so a

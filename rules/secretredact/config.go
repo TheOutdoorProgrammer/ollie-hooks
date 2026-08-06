@@ -5,11 +5,10 @@ import "github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 // config tunes the tool-output redactor. Enabling is the framework's business,
 // so there is no Enabled key here.
 type config struct {
-	Binary string `toml:"binary"`
-	// Tools whose output is scanned. Bash is the realistic source — `cat .env`,
-	// `env`, a curl response — and scanning every read of every file would cost
-	// far more than it catches.
-	Tools []string `toml:"tools"`
+	Binary string `toml:"binary" doc:"the scanner executable"`
+	// Bash is the realistic source (cat .env, env, a curl response); scanning
+	// every read of every file would cost far more than it catches.
+	Tools []string `toml:"tools" doc:"tools whose output is scanned"`
 }
 
 func defaultConfig() config {

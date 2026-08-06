@@ -6,15 +6,15 @@ import "github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 // shown on denial: "you may not edit this" is far less useful than the licence
 // or policy that makes it true.
 type protectedPath struct {
-	Match  string `toml:"match"`
-	Reason string `toml:"reason"`
+	Match  string `toml:"match" doc:"substring matched against the normalised absolute target path"`
+	Reason string `toml:"reason" doc:"shown on denial: the licence or policy that makes the tree off-limits"`
 }
 
 // config lists the trees this rule protects. It ships empty: the projects that
 // refuse AI-authored code are yours to name, and a shipped default would be us
 // guessing at someone else's policy.
 type config struct {
-	Paths []protectedPath `toml:"paths"`
+	Paths []protectedPath `toml:"paths" doc:"trees the agent may not write to, one table each"`
 }
 
 func defaultConfig() config {

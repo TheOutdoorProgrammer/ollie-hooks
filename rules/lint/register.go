@@ -12,8 +12,17 @@ func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
 		Description: "After an edit, run the file's linter and report what it found (never blocks the edit)",
-		Events:      []hook.EventName{hook.PostToolUse},
-		Tools:       []string{"Write", "Edit", "MultiEdit"},
-		Advise:      adviseLint,
+		Doc: "Dispatches by file extension to whichever of about ten linters fits, which " +
+			"is why the set is configurable: all-or-nothing enabling would demand every " +
+			"one of those tools from every user.\n" +
+			"Leaving `linters` empty runs whatever happens to be installed; naming one " +
+			"is a commitment, so a named linter that is missing gets reported instead " +
+			"of quietly skipped.\n" +
+			"A package-scoped linter's findings are narrowed to the edited file, so " +
+			"sibling-file noise never reaches the model.",
+		Events: []hook.EventName{hook.PostToolUse},
+		Tools:  []string{"Write", "Edit", "MultiEdit"},
+		Config: defaultConfig(),
+		Advise: adviseLint,
 	})
 }

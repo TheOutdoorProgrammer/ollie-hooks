@@ -4,11 +4,10 @@ import "github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 
 // config tunes the prompt scanner.
 type config struct {
-	Binary string `toml:"binary"`
-	// Redact is the percentage of each matched secret hidden in output. It
-	// defaults to full redaction: this rule reports that a credential was
-	// found, never the credential, or blocking it would be self-defeating.
-	Redact int `toml:"redact"`
+	Binary string `toml:"binary" doc:"the scanner executable"`
+	// Full redaction by default: this rule reports that a credential was found,
+	// never the credential, or blocking it would be self-defeating.
+	Redact int `toml:"redact" doc:"percent of each matched secret hidden in the report"`
 }
 
 func defaultConfig() config {

@@ -4,9 +4,9 @@ import "github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 
 // config tunes the comment gate without a rebuild.
 type config struct {
-	MaxCommentLines int  `toml:"max_comment_lines"`
-	MaxLineLength   int  `toml:"max_line_length"`
-	AgentMemo       bool `toml:"agent_memo"`
+	MaxCommentLines int  `toml:"max_comment_lines" doc:"flag comment blocks longer than this many lines"`
+	MaxLineLength   int  `toml:"max_line_length" doc:"flag comment lines longer than this, counted in runes"`
+	AgentMemo       bool `toml:"agent_memo" doc:"flag comments narrating the change itself (changed X to Y, Note:)"`
 }
 
 func defaultConfig() config {

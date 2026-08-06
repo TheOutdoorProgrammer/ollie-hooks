@@ -10,8 +10,13 @@ func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
 		Description: "Flag markdown prose a change hard-wrapped mid-sentence (advisory) — one sentence per line",
-		Events:      []hook.EventName{hook.PostToolUse},
-		Tools:       []string{"Write", "Edit", "MultiEdit"},
+		Doc: "One sentence per line keeps a diff to the sentence that changed; hard " +
+			"wrapping reflows every following line and buries the actual edit.\n" +
+			"Only lines a change actually touched are flagged, and code blocks and " +
+			"tables are never prose.",
+		Events: []hook.EventName{hook.PostToolUse},
+		Tools:  []string{"Write", "Edit", "MultiEdit"},
+		Config: defaultConfig(),
 		// A house style, not a correctness rule — it should read as a suggestion.
 		DefaultSeverity: hook.SeverityAdvisory,
 		Check:           checkProseWrap,
