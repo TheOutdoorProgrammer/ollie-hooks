@@ -7,7 +7,7 @@ Accepted.
 ## Context and problem statement
 
 A hook sits in front of every tool call.
-When one misbehaves — errors, hangs, or shells out to a tool that is not installed — something has to happen, and both answers are bad in different ways.
+When one misbehaves, errors, hangs, or shells out to a tool that is not installed, something has to happen, and both answers are bad in different ways.
 
 Fail closed and a broken rule blocks the session.
 Fail open and a broken rule is invisible, which for a security rule means it stops protecting you without ever saying so.

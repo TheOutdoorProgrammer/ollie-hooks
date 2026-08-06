@@ -8,7 +8,7 @@ Every hook is an independent handler running in parallel, so when two of them wa
 
 > When multiple `PreToolUse` hooks return `updatedInput`, the last one to finish takes effect.
 > Since hooks run in parallel, the order is non-deterministic.
-> — [Claude Code hooks reference](https://code.claude.com/docs/en/hooks)
+> Source: [Claude Code hooks reference](https://code.claude.com/docs/en/hooks)
 
 ollie-hooks registers as **one** hook and composes rules inside it, with deterministic ordering and a single place where precedence lives.
 
@@ -38,7 +38,7 @@ ollie-hooks doctor          # diagnoses your whole setup, exits non-zero if anyt
 `ollie-hooks doctor` is the one-shot health check: it strict-parses your config and names any key nothing reads (a misspelled `max_commet_lines` is silently ignored otherwise), flags unknown rule sections, diffs the wiring, reports enabled rules whose tools are missing, and prints the effective enabled/severity of every rule plus your trusted projects.
 It exits non-zero when it finds a problem, so it works in CI.
 
-Some rules shell out to other tools. `brew bundle --file=Brewfile` installs them, or install only what the rules you enable need — an enabled rule whose tool is missing tells you so rather than passing quietly.
+Some rules shell out to other tools. `brew bundle --file=Brewfile` installs them, or install only what the rules you enable need. An enabled rule whose tool is missing tells you so rather than passing quietly.
 
 ## Configure
 
@@ -103,9 +103,9 @@ Per-rule configuration is in [docs/rules.md](docs/rules.md), or run `ollie-hooks
 
 Two are worth expanding on.
 
-**`secret-scan` guards a gap nothing else covers.** `UserPromptSubmit` is the only event that can stop text *before it reaches the API*. A `PreToolUse` rule is far too late — the prompt has already been sent — and a commit-time secrets gate never sees a credential that was only pasted into chat. It reports the *kind* and line (`github-pat (line 1)`) and never the value: repeating the secret into the block reason would put it straight back into the transcript the rule exists to keep it out of.
+**`secret-scan` guards a gap nothing else covers.** `UserPromptSubmit` is the only event that can stop text *before it reaches the API*. A `PreToolUse` rule is far too late, the prompt has already been sent, and a commit-time secrets gate never sees a credential that was only pasted into chat. It reports the *kind* and line (`github-pat (line 1)`) and never the value: repeating the secret into the block reason would put it straight back into the transcript the rule exists to keep it out of.
 
-**`secret-redact` is the other half.** Once a secret reaches Claude's context it is in the transcript for good. `cat .env`, `env`, a curl response with a bearer token — all of it landed verbatim before. It matches on the literal value rather than reported columns, because column arithmetic breaks the moment output contains multibyte characters, and a *partial* redaction is worse than none since it looks like it worked.
+**`secret-redact` is the other half.** Once a secret reaches Claude's context it is in the transcript for good. `cat .env`, `env`, a curl response with a bearer token, all of it landed verbatim before. It matches on the literal value rather than reported columns, because column arithmetic breaks the moment output contains multibyte characters, and a *partial* redaction is worse than none since it looks like it worked.
 
 ## Rules in action
 
@@ -149,7 +149,7 @@ A rule declares the events it runs on and exactly one verb.
 
 | Verb | Effect |
 | --- | --- |
-| `Check` | Findings. Block the call, or arrive as context — your `severity` decides. |
+| `Check` | Findings. Block the call, or arrive as context, your `severity` decides. |
 | `Advise` | Context for the model, never blocking. |
 | `Gate` | An explicit allow/deny, and the only verb that can *approve*. |
 | `Rewrite` | Change the tool's input before it runs, or its output before Claude reads it. |
@@ -171,7 +171,7 @@ hook.Register(hook.Rule{
 
 `hook/` carries what a rule needs and rules should not re-solve: config loading, per-rule JSON state, guarded subprocess execution, ANSI colour, finding layout and wrapping, and `EditedFile()` for scoping a check to what a change actually introduced. `hook/hooktest` has event fixtures so a rule can be tested without a running Claude Code.
 
-Registration fails loudly. A misspelled event, or a verb the event cannot express, **panics at startup** rather than registering happily and firing never — which is the bug report with nothing to point at.
+Registration fails loudly. A misspelled event, or a verb the event cannot express, **panics at startup** rather than registering happily and firing never, which is the bug report with nothing to point at.
 
 The same applies to a `Gate` verdict. Each event reads a different envelope: `PreToolUse` takes `allow`/`deny`/`ask`/`defer`, `PermissionRequest` takes only `allow`/`deny`, and `Elicitation` takes `accept`/`decline`/`cancel`.
 Returning the wrong one is an error rather than an envelope Claude Code quietly drops, which matters most on `PermissionRequest`: a session that cannot show a prompt **denies** anything left undecided, so a malformed decision there is a denial, not a no-op.
@@ -210,7 +210,7 @@ The command has to exist when the rule loads, or you get told at startup rather 
 
 Set `server_url` instead of `startup_cmd` for a plugin that needs warm state. Same wire format.
 
-A custom Check rule can be downgraded like any built-in — to `advisory` or `off` — but the knob lives in a differently named section.
+A custom Check rule can be downgraded like any built-in, to `advisory` or `off`, but the knob lives in a differently named section.
 `[custom_rules.<id>]` *defines* the rule (`enabled`, `startup_cmd`, `verb`, `events`, `tools`, and a default `timeout`); its `severity` is read from the same-id `[rules.<id>]` section, which also overrides `timeout`.
 
 ## Per-project config
@@ -226,7 +226,7 @@ See [adr/0005](adr/0005-per-project-config-requires-trust.md) for why.
 
 ## When things go wrong
 
-Rules fail open. A rule that errors, times out, or is missing its tool never wedges a session — which also means a broken rule is silent. So:
+Rules fail open. A rule that errors, times out, or is missing its tool never wedges a session, which also means a broken rule is silent. So:
 
 ```sh
 OLLIE_HOOKS_DEBUG=1
@@ -245,7 +245,7 @@ There is one deliberate exception to failing open. A rule may set `FailClosedOnT
 ## Notes
 
 - `mermaid-stream` needs `verbose` **off**. Verbose mode shows the original text, so the rule appears broken.
-- `mermaid-ascii` is `go install github.com/AlexanderGrooff/mermaid-ascii@latest` — it has no brew formula.
+- `mermaid-ascii` is `go install github.com/AlexanderGrooff/mermaid-ascii@latest`, it has no brew formula.
 - Hook output is capped at 10,000 characters by Claude Code; past that it is replaced by a file path. Findings are trimmed to fit and say how many were dropped.
 
 ## Why it works this way

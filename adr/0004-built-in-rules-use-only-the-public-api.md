@@ -26,7 +26,7 @@ The point is that this is inconvenient on purpose.
 A built-in that needs something unexported cannot have it, and that is the signal: the public API is incomplete, discovered at compile time rather than in a stranger's issue six months later.
 Built-ins are the dogfood, not a privileged tier.
 
-Option 3 was rejected for exactly that reason — an escape hatch means the built-ins stop being a test of the API the moment one of them uses it.
+Option 3 was rejected for exactly that reason, an escape hatch means the built-ins stop being a test of the API the moment one of them uses it.
 
 This has already paid for itself. `EditedFile` did not read `notebook_path` and did not resolve relative paths, so two rules had quietly grown their own private copies that did.
 Those copies were the evidence the shared helper was too weak, and folding them back in fixed a silent bypass for every future rule that would have used it.

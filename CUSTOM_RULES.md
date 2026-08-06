@@ -1,7 +1,7 @@
 # Writing a custom rule
 
 A custom rule runs your own code on a hook event, in any language, without touching the ollie-hooks binary.
-It is a separate program that reads a request on stdin and writes a reply on stdout — or an HTTP server that answers the same shapes.
+It is a separate program that reads a request on stdin and writes a reply on stdout, or an HTTP server that answers the same shapes.
 ollie-hooks composes it with the built-in rules under the same precedence, so a custom Check can deny a call before a Rewrite ever runs.
 
 ## Enable it
@@ -19,16 +19,16 @@ tools       = ["Bash"]                       # omit for every tool
 ```
 
 `verb` is a capability, not a label.
-It decides which field of your reply is read, so a rule you enabled to *advise* can never start *denying* your tool calls after an update you did not review — anything else it returns is ignored.
+It decides which field of your reply is read, so a rule you enabled to *advise* can never start *denying* your tool calls after an update you did not review. Anything else it returns is ignored.
 
 `startup_cmd` runs the program once per event: request on stdin, reply on stdout, exit.
 It is not run through a shell, so there are no pipes, redirects, or variable expansion; a leading `~` is expanded and quoted arguments hold together.
-Use `server_url` instead for a rule that needs warm state, like a loaded index or a language server — same wire format, over HTTP POST.
+Use `server_url` instead for a rule that needs warm state, like a loaded index or a language server. Same wire format, over HTTP POST.
 
 One endpoint can serve several rules.
 Give each its own `[custom_rules.<id>]` with the same `startup_cmd`, and ollie-hooks calls the program once per event, naming which of its rules to run.
 
-`severity` and `timeout` for a custom rule are read from the same-id `[rules.<id>]` section, not `[custom_rules.<id>]` — so a custom Check can be downgraded to `advisory` just like a built-in.
+`severity` and `timeout` for a custom rule are read from the same-id `[rules.<id>]` section, not `[custom_rules.<id>]`, so a custom Check can be downgraded to `advisory` just like a built-in.
 
 ## The wire protocol
 
@@ -46,7 +46,7 @@ Only the field matching each rule's declared `verb` is read:
 
 | verb | field | shape |
 | --- | --- | --- |
-| `Check` | `findings` | `[{ "message": "..." }]` — each becomes a blocking finding |
+| `Check` | `findings` | `[{ "message": "..." }]`, each becomes a blocking finding |
 | `Advise` | `advice` | a string, delivered to the model as context, never blocking |
 | `Gate` | `decision` | `{ "permission": "allow" \| "deny", "reason": "...", "updatedInput": { ... } }` |
 | `Rewrite` | `mutation` | `{ "updatedInput": { ... } }`, or `{ "updatedOutput": ..., "note": "..." }` |
@@ -61,7 +61,7 @@ One serving several rules keys them by id:
 { "rules": { "no-curl": { "findings": [{ "message": "curl is not allowed here." }] } } }
 ```
 
-An empty reply, or `{}`, means "nothing to say" — the rule fires nothing.
+An empty reply, or `{}`, means "nothing to say": the rule fires nothing.
 
 ## Two ways to build it
 
@@ -101,16 +101,14 @@ func main() {
 }
 ```
 
-`hook.PluginRequest`, `hook.PluginResponse`, `hook.PluginReply`, and the field types (`hook.Finding`, `hook.Mutation`, `hook.Decision`, `hook.Event`) are all exported for exactly this — so a Go plugin never hand-builds the JSON or guesses a key.
+`hook.PluginRequest`, `hook.PluginResponse`, `hook.PluginReply`, and the field types (`hook.Finding`, `hook.Mutation`, `hook.Decision`, `hook.Event`) are all exported for exactly this, so a Go plugin never hand-builds the JSON or guesses a key.
 
-## Rules of the road
+## Gotchas
 
-Your rule **fails open**: if the program errors, times out, or is missing, ollie-hooks abandons it rather than wedge the session.
-A rule whose *not running* is itself the failure — a scan that must happen — should say so through a Check finding, not lean on silence.
+Your rule fails open. If the program errors, times out, or isn't installed, ollie-hooks drops it rather than wedge the session, so a rule whose whole job is to run (a scan that has to happen) should fail loud through a Check finding, never lean on silence.
 
-**Never echo a secret** back into a finding, note, or reply — whatever you return lands in the transcript, which is the thing a secret rule exists to keep it out of.
+Never echo a secret back into a finding, note, or reply. Whatever you return lands in the transcript, which is the one place a secret rule exists to keep it out of.
 
-The `event` is the raw payload.
-Decode `tool_input` and `tool_response` yourself, since their shape is per-tool.
+The `event` is the raw payload, so decode `tool_input` and `tool_response` yourself. Their shape is per-tool, and there's no generic struct that fits all of them.
 
 See [adr/0002](adr/0002-json-over-stdio-for-out-of-process-rules.md) for why the transport is JSON over stdio rather than a supervised daemon or gRPC.

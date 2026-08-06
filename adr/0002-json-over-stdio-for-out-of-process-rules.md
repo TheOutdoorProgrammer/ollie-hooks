@@ -33,7 +33,7 @@ print(json.dumps({"findings": [{"message": "no"}]}))
 
 Two secondary arguments pointed the same way.
 gRPC would have taken ollie-hooks from three dependencies to twenty-odd, in a binary that gates every tool call and should be easy to audit.
-And the event is already JSON — Claude Code hands it over as JSON, so a plugin gets exactly the payload it would have read writing a hook by hand, with no schema in between to drift.
+And the event is already JSON, Claude Code hands it over as JSON, so a plugin gets exactly the payload it would have read writing a hook by hand, with no schema in between to drift.
 
 ## Consequences
 
