@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -26,9 +25,7 @@ func fakePAT() string {
 
 func requireScanner(t *testing.T) {
 	t.Helper()
-	if _, err := exec.LookPath(defaultConfig().Binary); err != nil {
-		t.Skip("betterleaks not installed")
-	}
+	hooktest.RequireBinary(t, defaultConfig().Binary)
 }
 
 func bashResult(t *testing.T, stdout, stderr string) *hook.Event {

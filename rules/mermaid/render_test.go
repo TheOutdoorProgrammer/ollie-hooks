@@ -12,7 +12,8 @@ import (
 func requireMermaidASCII(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath(defaultConfig().Binary); err != nil {
-		t.Skip("mermaid-ascii not installed")
+		hooktest.RequireBinary(t, defaultConfig().Binary)
+		return
 	}
 }
 

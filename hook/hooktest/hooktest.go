@@ -210,3 +210,20 @@ func AssertConfigDocumented(t *testing.T) {
 		t.Errorf("the example documents keys nothing reads: %s", strings.Join(stray, ", "))
 	}
 }
+
+// RequireBinary skips a test whose helper tool is absent, unless the
+// environment insists the tool must be there.
+//
+// Set OLLIE_HOOKS_REQUIRE_TOOLS=1 to turn that skip into a failure. CI does,
+// so the rules that shell out cannot quietly stop being tested the way
+// secret-scan did: its whole positive path skipped on every runner.
+func RequireBinary(t *testing.T, bin string) {
+	t.Helper()
+	if hook.Installed(bin) {
+		return
+	}
+	if os.Getenv("OLLIE_HOOKS_REQUIRE_TOOLS") != "" {
+		t.Fatalf("%s is not installed, and OLLIE_HOOKS_REQUIRE_TOOLS is set", bin)
+	}
+	t.Skipf("%s not installed", bin)
+}

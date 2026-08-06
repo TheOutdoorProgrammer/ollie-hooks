@@ -28,9 +28,22 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
 
+      # One runner installs them, so the shell-out paths run somewhere. Without
+      # this, secret-scan's positive path skipped everywhere and its scanner
+      # contract (JSON field names, exit codes) was pinned by nothing.
+      - name: Install the tools rules shell out to
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install betterleaks
+          go install github.com/AlexanderGrooff/mermaid-ascii@latest
+
       # -race everywhere: hooks fire concurrently across parallel tool calls,
       # so shared state is a real failure mode rather than a theoretical one.
       - run: go test -race ./...
+        env:
+          # Turns "tool missing, skipping" into a failure on the one runner
+          # that installed them.
+          OLLIE_HOOKS_REQUIRE_TOOLS: ${{ matrix.os == 'macos-latest' && '1' || '' }}
 
   lint:
     runs-on: ubuntu-latest
