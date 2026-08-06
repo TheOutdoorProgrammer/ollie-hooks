@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-
-	toon "github.com/toon-format/toon-go"
 )
 
 // Decide runs the rules for an event and returns the JSON response to print
@@ -71,25 +69,15 @@ func Decide(ev *Event) (string, error) {
 	return "", nil
 }
 
-// respond builds the event-appropriate block response. The envelope must be
-// JSON — Claude Code parses hook stdout as JSON and ignores anything else —
-// but the reason payload the model reads is the findings list encoded as
-// TOON (always a list, even for a single finding) for token economy.
+// respond builds the block response for an event. The envelope is JSON —
+// all Claude Code reads from stdout — and the reason inside is the findings
+// rendered as a table for the model.
 func respond(event EventName, findings []Finding, echo, advice string) (string, error) {
-	encode := func(fs []Finding) (string, error) {
-		return toon.MarshalString(map[string][]Finding{"findings": fs})
-	}
 	findings = expandFindings(findings, wrapWidth())
-	_, reason, err := fitFindings(findings, encode)
-	if err != nil {
-		// TOON is an optimization, not a requirement — fall back to JSON
-		// findings rather than dropping the block.
-		raw, jerr := json.Marshal(map[string][]Finding{"findings": findings})
-		if jerr != nil {
-			return "", fmt.Errorf("encoding findings: %w", err)
-		}
-		reason = string(raw)
-	}
+	// renderFindings never errors, so the reason is always a rendered table.
+	_, reason, _ := fitFindings(findings, func(fs []Finding) (string, error) {
+		return renderFindings(fs), nil
+	})
 
 	var envelope any
 	switch event {

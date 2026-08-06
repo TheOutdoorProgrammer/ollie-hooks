@@ -10,14 +10,12 @@ import (
 // terminal, so the real width cannot be detected — it has to be a setting.
 const defaultWrapWidth = 100
 
-// continuationMarker is the rule-column glyph for a wrapped line, indented so
-// the arrow sits under the last char of the rule label above. len-2, not len-1:
-// TOON quotes the leading-space value, and that opening quote eats one column.
-func continuationMarker(rule string) string {
-	return strings.Repeat(" ", max(len([]rune(rule))-2, 0)) + "↳"
-}
+// continuationGlyph marks a wrapped line's rule column. renderFindings
+// right-aligns the column, so the glyph lands just before the divider under the
+// rule label above without any manual indentation.
+const continuationGlyph = "↳"
 
-// expandFindings turns each finding into the rows TOON's 2-column table wants.
+// expandFindings turns each finding into the rows the 2-column table wants.
 //
 // A message is written however reads best in source — indented raw strings
 // included — and normalised here: whitespace inside a line collapses, so source
@@ -30,7 +28,6 @@ func expandFindings(findings []Finding, width int) []Finding {
 	}
 	out := make([]Finding, 0, len(findings))
 	for _, f := range findings {
-		marker := continuationMarker(f.Rule)
 		first := true
 		for _, para := range strings.Split(f.Message, "\n") {
 			para = strings.Join(strings.Fields(para), " ")
@@ -43,7 +40,7 @@ func expandFindings(findings []Finding, width int) []Finding {
 					first = false
 					continue
 				}
-				out = append(out, Finding{Rule: marker, Message: line})
+				out = append(out, Finding{Rule: continuationGlyph, Message: line})
 			}
 		}
 		// A message that was entirely whitespace still needs a row, or the
@@ -53,6 +50,29 @@ func expandFindings(findings []Finding, width int) []Finding {
 		}
 	}
 	return out
+}
+
+// renderFindings draws expanded findings as an aligned two-column table:
+// the rule label right-aligned so dividers line up, then the message. It is
+// display-only and renders without escaping — never parse the output.
+func renderFindings(findings []Finding) string {
+	width := 0
+	for _, f := range findings {
+		if n := utf8.RuneCountInString(f.Rule); n > width {
+			width = n
+		}
+	}
+	var b strings.Builder
+	for i, f := range findings {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(strings.Repeat(" ", width-utf8.RuneCountInString(f.Rule)))
+		b.WriteString(f.Rule)
+		b.WriteString(" │ ")
+		b.WriteString(f.Message)
+	}
+	return b.String()
 }
 
 // maxOutputChars is Claude Code's cap on hook output. Past it the content is
@@ -82,6 +102,39 @@ func fitFindings(findings []Finding, encode func([]Finding) (string, error)) ([]
 		if len(out) <= maxOutputChars {
 			return trimmed, out, nil
 		}
+	}
+	// Last resort: one finding whose message is a single unsplittable word past
+	// the cap. Binary-search the longest truncation whose encoding fits, so the
+	// reason stays findings instead of degrading to a file path.
+	omitted := len(findings) - 1
+	build := func(runes int) []Finding {
+		fs := []Finding{{Rule: findings[0].Rule, Message: Truncate(findings[0].Message, runes)}}
+		if omitted > 0 {
+			fs = append(fs, Finding{
+				Rule:    "…",
+				Message: strconv.Itoa(omitted) + " more line(s) omitted to fit the output limit",
+			})
+		}
+		return fs
+	}
+	lo, hi := 1, utf8.RuneCountInString(findings[0].Message)
+	var fitted []Finding
+	for lo <= hi {
+		mid := (lo + hi) / 2
+		cand := build(mid)
+		enc, encErr := encode(cand)
+		if encErr != nil {
+			return findings, "", encErr
+		}
+		if len(enc) <= maxOutputChars {
+			fitted, out, err = cand, enc, nil
+			lo = mid + 1
+		} else {
+			hi = mid - 1
+		}
+	}
+	if fitted != nil {
+		return fitted, out, nil
 	}
 	return findings, out, err
 }

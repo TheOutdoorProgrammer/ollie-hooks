@@ -16,8 +16,8 @@ func TestExpandFindings(t *testing.T) {
 	want := []Finding{
 		{Rule: "single", Message: "one line"},
 		{Rule: "multi", Message: "first"},
-		{Rule: continuationMarker("multi"), Message: "second"},
-		{Rule: continuationMarker("multi"), Message: "third"},
+		{Rule: continuationGlyph, Message: "second"},
+		{Rule: continuationGlyph, Message: "third"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d rows, want %d: %+v", len(got), len(want), got)
@@ -50,7 +50,7 @@ func TestExpandFindingsNormalisesAndWraps(t *testing.T) {
 	if got[0].Rule != "r" {
 		t.Errorf("first row keeps the rule name, got %q", got[0].Rule)
 	}
-	if got[1].Rule != continuationMarker("r") {
+	if got[1].Rule != continuationGlyph {
 		t.Errorf("later rows take the continuation marker, got %q", got[1].Rule)
 	}
 }

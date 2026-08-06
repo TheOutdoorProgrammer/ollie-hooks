@@ -126,7 +126,7 @@ type Decision struct {
 	// PermissionRequest take allow/deny; Elicitation takes accept/decline/cancel.
 	Permission string
 	// Reason explains the verdict. Multiline is fine, it lands in a JSON string
-	// rather than the TOON table.
+	// rather than the rendered findings table.
 	Reason string
 	// UpdatedInput replaces the tool's arguments. Allowed calls only, and it
 	// replaces the WHOLE object, so start from the decoded input.
@@ -154,8 +154,8 @@ type Mutation struct {
 }
 
 // Finding is one violation: which rule fired and what the model should do
-// about it — never a bare "failed". The findings list is TOON-encoded into
-// the block reason the model reads.
+// about it — never a bare "failed". The findings list is rendered as a table
+// into the block reason the model reads.
 type Finding struct {
 	Rule    string `json:"rule"`
 	Message string `json:"message"`
@@ -352,8 +352,9 @@ func RunChecks(ev *Event) CheckResults {
 	return res
 }
 
-// advisoryText flattens a rule's findings into one piece of context. The TOON table
-// is the blocking format; an advisory is prose alongside the tool result.
+// advisoryText flattens a rule's findings into one piece of context. The
+// rendered table is the blocking format; an advisory is prose alongside the
+// tool result.
 func advisoryText(fired []Finding) string {
 	lines := make([]string, 0, len(fired))
 	for _, f := range fired {
