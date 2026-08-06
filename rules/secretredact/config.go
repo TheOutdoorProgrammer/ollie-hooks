@@ -15,15 +15,18 @@ func defaultConfig() config {
 	return config{Binary: "betterleaks", Tools: []string{"Bash"}}
 }
 
-func loadConfig() config {
-	cfg := hook.Config(RuleID, defaultConfig())
-	if cfg.Binary == "" {
-		cfg.Binary = defaultConfig().Binary
+func loadConfig() config { return hook.Config(RuleID, defaultConfig()) }
+
+// Validate refills the scanner name and the scanned-tools list if a section
+// blanks them.
+func (c *config) Validate() {
+	d := defaultConfig()
+	if c.Binary == "" {
+		c.Binary = d.Binary
 	}
-	if len(cfg.Tools) == 0 {
-		cfg.Tools = defaultConfig().Tools
+	if len(c.Tools) == 0 {
+		c.Tools = d.Tools
 	}
-	return cfg
 }
 
 // configuredScanner names the scanner this rule will actually run, which is

@@ -24,7 +24,7 @@ func RuleSeverity(id string, byDefault Severity) Severity {
 	cfg := struct {
 		Severity string `toml:"severity"`
 	}{}
-	if !LoadConfig(id, &cfg) {
+	if !loadConfig(id, &cfg) {
 		return byDefault
 	}
 	switch Severity(strings.ToLower(strings.TrimSpace(cfg.Severity))) {

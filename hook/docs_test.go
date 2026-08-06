@@ -152,7 +152,7 @@ func TestGeneratedExampleIsDecodableByEveryRule(t *testing.T) {
 	writeUserConfig(t, live)
 
 	cfg := demoConfig{}
-	if !LoadConfig("demo", &cfg) {
+	if !loadConfig("demo", &cfg) {
 		t.Fatalf("the generated example does not parse:\n%s", live)
 	}
 	if cfg.Count != 3 || cfg.Name != "hi" || !cfg.On {

@@ -21,12 +21,4 @@ func defaultConfig() config {
 	return config{}
 }
 
-// loadConfig layers [rules.no-codegen] over the defaults; a malformed section
-// falls back to clean defaults.
-func loadConfig() config {
-	cfg := defaultConfig()
-	if !hook.LoadConfig(RuleID, &cfg) {
-		return defaultConfig()
-	}
-	return cfg
-}
+func loadConfig() config { return hook.Config(RuleID, defaultConfig()) }

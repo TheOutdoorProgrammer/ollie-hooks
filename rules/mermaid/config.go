@@ -13,18 +13,15 @@ func defaultConfig() config {
 	return config{WidthCap: 120, Binary: "mermaid-ascii"}
 }
 
-// loadConfig layers [rules.mermaid-stream] over the defaults; a malformed
-// section falls back to clean defaults.
-func loadConfig() config {
-	cfg := defaultConfig()
-	if !hook.LoadConfig(RuleID, &cfg) {
-		return defaultConfig()
+func loadConfig() config { return hook.Config(RuleID, defaultConfig()) }
+
+// Validate refills any emptied field so a partial section still renders.
+func (c *config) Validate() {
+	d := defaultConfig()
+	if c.WidthCap <= 0 {
+		c.WidthCap = d.WidthCap
 	}
-	if cfg.WidthCap <= 0 {
-		cfg.WidthCap = defaultConfig().WidthCap
+	if c.Binary == "" {
+		c.Binary = d.Binary
 	}
-	if cfg.Binary == "" {
-		cfg.Binary = defaultConfig().Binary
-	}
-	return cfg
 }

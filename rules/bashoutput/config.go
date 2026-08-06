@@ -20,15 +20,11 @@ func defaultConfig() config {
 	}
 }
 
-// loadConfig layers [rules.bash-output] over the defaults; a malformed section
-// falls back to clean defaults.
-func loadConfig() config {
-	cfg := defaultConfig()
-	if !hook.LoadConfig(RuleID, &cfg) {
-		return defaultConfig()
+func loadConfig() config { return hook.Config(RuleID, defaultConfig()) }
+
+// Validate keeps MinLines sane: below 1 it would reprint everything.
+func (c *config) Validate() {
+	if c.MinLines < 1 {
+		c.MinLines = 1
 	}
-	if cfg.MinLines < 1 {
-		cfg.MinLines = 1
-	}
-	return cfg
 }

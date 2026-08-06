@@ -14,8 +14,8 @@ func TestMalformedConfigIsNotMistakenForAbsent(t *testing.T) {
 	var cfg struct {
 		Enabled bool `toml:"enabled"`
 	}
-	if LoadConfig("demo", &cfg) {
-		t.Error("LoadConfig reported success for a file that does not parse")
+	if loadConfig("demo", &cfg) {
+		t.Error("loadConfig reported success for a file that does not parse")
 	}
 }
 

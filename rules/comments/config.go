@@ -17,12 +17,4 @@ func defaultConfig() config {
 	}
 }
 
-// loadConfig layers [rules.comments] over the defaults. A malformed section
-// falls back to clean defaults — a bad config must never half-configure a rule.
-func loadConfig() config {
-	cfg := defaultConfig()
-	if !hook.LoadConfig(RuleID, &cfg) {
-		return defaultConfig()
-	}
-	return cfg
-}
+func loadConfig() config { return hook.Config(RuleID, defaultConfig()) }

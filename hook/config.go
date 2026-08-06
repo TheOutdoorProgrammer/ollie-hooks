@@ -39,11 +39,10 @@ func decodeConfig(root any) (toml.MetaData, bool) {
 	return md, true
 }
 
-// LoadConfig decodes the [rules.<id>] section over whatever defaults v already
-// holds, and reports whether that succeeded. A missing file or absent section
-// is success — v keeps its defaults. Only a malformed section is false, which
-// callers answer by discarding v: a bad config must never half-configure a rule.
-func LoadConfig(id string, v any) bool {
+// loadConfig decodes the [rules.<id>] section over v's defaults, reporting
+// success. Missing file or section is success (v keeps defaults); only a
+// malformed section is false, and callers discard v rather than half-apply it.
+func loadConfig(id string, v any) bool {
 	var root struct {
 		Rules map[string]toml.Primitive `toml:"rules"`
 	}
@@ -64,19 +63,26 @@ func RuleEnabled(id string, byDefault bool) bool {
 	cfg := struct {
 		Enabled *bool `toml:"enabled"`
 	}{}
-	if !LoadConfig(id, &cfg) || cfg.Enabled == nil {
+	if !loadConfig(id, &cfg) || cfg.Enabled == nil {
 		return byDefault
 	}
 	return *cfg.Enabled
 }
 
-// Config loads a rule's [rules.<id>] section over its defaults. A malformed
-// section yields the defaults untouched: half-applying a broken config is worse
-// than ignoring it, because the rule then behaves in a way nobody chose.
+// Validator lets a config type repair itself after loading, so a rule's
+// defaults are enforced once, not by a hand-written dance after every load.
+type Validator interface{ Validate() }
+
+// Config loads a rule's [rules.<id>] section over its defaults, then lets the
+// result Validate() itself. A malformed section yields the defaults untouched:
+// half-applying a broken config is worse than ignoring it.
 func Config[T any](id string, defaults T) T {
 	cfg := defaults
-	if !LoadConfig(id, &cfg) {
+	if !loadConfig(id, &cfg) {
 		return defaults
+	}
+	if v, ok := any(&cfg).(Validator); ok {
+		v.Validate()
 	}
 	return cfg
 }
@@ -88,7 +94,7 @@ func RuleTimeout(id string, declared int) int {
 	cfg := struct {
 		Timeout int `toml:"timeout"`
 	}{}
-	if LoadConfig(id, &cfg) && cfg.Timeout > 0 {
+	if loadConfig(id, &cfg) && cfg.Timeout > 0 {
 		return cfg.Timeout
 	}
 	if declared > 0 {

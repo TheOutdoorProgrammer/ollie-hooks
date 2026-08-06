@@ -14,20 +14,17 @@ func defaultConfig() config {
 	return config{Binary: "betterleaks", Redact: 100}
 }
 
-// loadConfig layers [rules.secret-scan] over the defaults; a malformed section
-// falls back to clean defaults.
-func loadConfig() config {
-	cfg := defaultConfig()
-	if !hook.LoadConfig(RuleID, &cfg) {
-		return defaultConfig()
+func loadConfig() config { return hook.Config(RuleID, defaultConfig()) }
+
+// Validate refills the scanner name and clamps redaction to a valid percent.
+func (c *config) Validate() {
+	d := defaultConfig()
+	if c.Binary == "" {
+		c.Binary = d.Binary
 	}
-	if cfg.Binary == "" {
-		cfg.Binary = defaultConfig().Binary
+	if c.Redact < 0 || c.Redact > 100 {
+		c.Redact = d.Redact
 	}
-	if cfg.Redact < 0 || cfg.Redact > 100 {
-		cfg.Redact = defaultConfig().Redact
-	}
-	return cfg
 }
 
 // configuredScanner names the scanner this rule will actually run, which is

@@ -25,15 +25,17 @@ func defaultConfig() config {
 	}
 }
 
-func loadConfig() config {
-	cfg := hook.Config(RuleID, defaultConfig())
-	if len(cfg.Extensions) == 0 {
-		cfg.Extensions = defaultConfig().Extensions
+func loadConfig() config { return hook.Config(RuleID, defaultConfig()) }
+
+// Validate refills the extension list and report cap when a section blanks it.
+func (c *config) Validate() {
+	d := defaultConfig()
+	if len(c.Extensions) == 0 {
+		c.Extensions = d.Extensions
 	}
-	if cfg.MaxReported <= 0 {
-		cfg.MaxReported = defaultConfig().MaxReported
+	if c.MaxReported <= 0 {
+		c.MaxReported = d.MaxReported
 	}
-	return cfg
 }
 
 // applies reports whether this file is prose the rule should read.
