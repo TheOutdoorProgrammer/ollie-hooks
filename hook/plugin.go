@@ -33,11 +33,15 @@ type transport interface {
 type execTransport struct{ command string }
 
 func (t execTransport) call(ctx context.Context, payload []byte) ([]byte, error) {
-	fields := strings.Fields(t.command)
+	fields, err := splitCommand(t.command)
+	if err != nil {
+		return nil, err
+	}
 	if len(fields) == 0 {
 		return nil, fmt.Errorf("empty startup_cmd")
 	}
 	cmd := exec.CommandContext(ctx, fields[0], fields[1:]...)
+	cmd.WaitDelay = waitDelay
 	cmd.Stdin = bytes.NewReader(payload)
 	var out, errBuf bytes.Buffer
 	cmd.Stdout = &out
@@ -83,6 +87,18 @@ func transportFor(c CustomRule) (transport, error) {
 	case c.ServerURL != "":
 		return httpTransport{url: c.ServerURL}, nil
 	case c.StartupCmd != "":
+		// Resolved now rather than at first call. A plugin fails open, so a typo
+		// in the path would otherwise present as the rule simply never firing.
+		fields, err := splitCommand(c.StartupCmd)
+		if err != nil {
+			return nil, err
+		}
+		if len(fields) == 0 {
+			return nil, fmt.Errorf("startup_cmd is empty")
+		}
+		if _, err := exec.LookPath(fields[0]); err != nil {
+			return nil, fmt.Errorf("startup_cmd %q not found on PATH or disk", fields[0])
+		}
 		return execTransport{command: c.StartupCmd}, nil
 	}
 	return nil, fmt.Errorf("needs a server_url or a startup_cmd")

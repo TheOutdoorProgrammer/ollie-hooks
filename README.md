@@ -153,7 +153,11 @@ out = {"findings": [{"message": "curl is not allowed here."}]} if "curl" in cmd 
 print(json.dumps(out))
 ```
 
-The event is the JSON Claude Code sent, unchanged — the same shape you would read writing a hook by hand.
+The event is the JSON Claude Code sent, unchanged: the same shape you would read writing a hook by hand.
+
+`startup_cmd` is not run through a shell, so there are no pipes, no redirects and no variable expansion.
+A leading `~` is expanded and quoted arguments hold together, which covers what people actually write.
+The command has to exist when the rule loads, or you get told at startup rather than discovering a typo'd path as a rule that quietly never fires.
 
 **`verb` is a capability, not a label.** It picks which field of the reply is read, so a plugin you enabled to *advise* cannot start denying your tool calls after an update you did not read. Anything else it returns is ignored rather than obeyed.
 

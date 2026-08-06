@@ -121,11 +121,14 @@ func TestCustomRuleRejectsBadEntries(t *testing.T) {
 	}
 }
 
-// A plugin that dies must not take the session with it.
+// A plugin that dies must not take the session with it. `false` exists but
+// exits non-zero, which is the runtime failure this guards; a command that is
+// missing entirely is rejected earlier, by customRule.
 func TestAPluginFailureIsSurvivable(t *testing.T) {
+	skipOnWindows(t)
 	freshBroker(t)
 	r, err := customRule("crashy", CustomRule{
-		StartupCmd: "definitely-not-a-real-binary-xyzzy", Verb: VerbCheck,
+		StartupCmd: "false", Verb: VerbCheck,
 		Events: []EventName{PreToolUse}, Enabled: true,
 	})
 	if err != nil {
@@ -133,5 +136,21 @@ func TestAPluginFailureIsSurvivable(t *testing.T) {
 	}
 	if got := r.Check(context.Background(), &Event{HookEventName: PreToolUse}); got != nil {
 		t.Errorf("a dead plugin should yield nothing, got %+v", got)
+	}
+}
+
+// A startup_cmd that does not exist is caught when the rule is built, not on
+// first fire. Plugins fail open, so without this the only symptom of a typo'd
+// path is a rule that never does anything.
+func TestCustomRuleRejectsAMissingCommand(t *testing.T) {
+	_, err := customRule("gone", CustomRule{
+		StartupCmd: "definitely-not-a-real-binary-xyzzy", Verb: VerbCheck,
+		Events: []EventName{PreToolUse}, Enabled: true,
+	})
+	if err == nil {
+		t.Fatal("a missing startup_cmd must be reported, not deferred to a silent runtime failure")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should say what is missing, got: %v", err)
 	}
 }
