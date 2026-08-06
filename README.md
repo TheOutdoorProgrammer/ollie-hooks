@@ -168,6 +168,9 @@ The command has to exist when the rule loads, or you get told at startup rather 
 
 Set `server_url` instead of `startup_cmd` for a plugin that needs warm state. Same wire format.
 
+A custom Check rule can be downgraded like any built-in — to `advisory` or `off` — but the knob lives in a differently named section.
+`[custom_rules.<id>]` *defines* the rule (`enabled`, `startup_cmd`, `verb`, `events`, `tools`, and a default `timeout`); its `severity` is read from the same-id `[rules.<id>]` section, which also overrides `timeout`.
+
 ## When things go wrong
 
 Rules fail open. A rule that errors, times out, or is missing its tool never wedges a session — which also means a broken rule is silent. So:
@@ -195,6 +198,14 @@ There is one deliberate exception to failing open. A rule may set `FailClosedOnT
 ## Why it works this way
 
 The decisions worth arguing about are written down in [adr/](adr/): why this is one hook instead of many, why plugins speak JSON on stdio rather than gRPC, why rules fail open, and why the built-in rules are stuck with the same public API as everyone else's.
+
+## Compatibility
+
+`hook/` is importable, but it is **v0.x**: the public API is not stable yet.
+Until a `v1.0.0` tag, a minor release (`0.y.0`) may change or remove exported names in `hook/` without a deprecation cycle.
+Pin an exact version if you build a rule out of tree.
+Rule config keys and the out-of-process wire protocol are treated more conservatively, but the same v0.x caveat holds.
+Once the surface has settled, `v1.0.0` will freeze it under normal semver.
 
 ## Licence
 
