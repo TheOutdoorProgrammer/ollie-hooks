@@ -6,7 +6,12 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+// waitDelay is the grace period between killing a child and giving up on the
+// output pipes a surviving grandchild may still hold open.
+const waitDelay = time.Second
 
 // RunResult is a helper binary's output. ExitCode is a result, not an error:
 // scanners and linters routinely signal findings with a non-zero exit.
@@ -24,6 +29,10 @@ func Exec(ctx context.Context, stdin, bin string, args ...string) (RunResult, bo
 		return RunResult{}, false
 	}
 	cmd := exec.CommandContext(ctx, bin, args...)
+	// Killing the child does not kill grandchildren it spawned, and they inherit
+	// the output pipe Run waits on — so without this, `sh -c 'lint & '` outlives
+	// its deadline by however long the grandchild runs.
+	cmd.WaitDelay = waitDelay
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}
@@ -32,6 +41,14 @@ func Exec(ctx context.Context, stdin, bin string, args ...string) (RunResult, bo
 	cmd.Stderr = &errBuf
 
 	err := cmd.Run()
+
+	// Checked first: a deadline-killed child reports an ordinary *exec.ExitError
+	// ("signal: killed") carrying whatever it wrote before dying, so classifying
+	// the error first would accept partial output as a complete result.
+	if ctx.Err() != nil {
+		return RunResult{}, false
+	}
+
 	res := RunResult{Stdout: out.String(), Stderr: errBuf.String()}
 	var exitErr *exec.ExitError
 	switch {
@@ -39,7 +56,7 @@ func Exec(ctx context.Context, stdin, bin string, args ...string) (RunResult, bo
 	case errors.As(err, &exitErr):
 		res.ExitCode = exitErr.ExitCode()
 	default:
-		// Killed by the deadline, or never started — no trustworthy result.
+		// Never started, or died in a way that leaves no exit status.
 		return RunResult{}, false
 	}
 	return res, true
