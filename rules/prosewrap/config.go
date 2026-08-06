@@ -11,11 +11,11 @@ import (
 // not a correctness rule: plenty of people hard-wrap at 80 and are happy. So
 // everything about it is the user's to set.
 type config struct {
-	IgnorePaths []string `toml:"ignore_paths" doc:"path substrings to skip, for trees that are already hard-wrapped"`
+	IgnorePaths []string `toml:"ignore_paths" doc:"skip any path containing one of these"`
 	// Markdown by default because that is where renderers rejoin lines.
 	Extensions []string `toml:"extensions" doc:"file extensions this applies to"`
 	// A reflowed file can produce hundreds, and a wall of them buries the point.
-	MaxReported int `toml:"max_reported" doc:"most wrapped lines one finding will list"`
+	MaxReported int `toml:"max_reported" doc:"stop listing wrapped lines after this many"`
 }
 
 func defaultConfig() config {

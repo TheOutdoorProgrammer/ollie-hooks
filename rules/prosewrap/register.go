@@ -9,11 +9,14 @@ const RuleID = "prose-wrap"
 func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
-		Description: "Flag markdown prose a change hard-wrapped mid-sentence (advisory) — one sentence per line",
-		Doc: "One sentence per line keeps a diff to the sentence that changed; hard " +
-			"wrapping reflows every following line and buries the actual edit.\n" +
-			"Only lines a change actually touched are flagged, and code blocks and " +
-			"tables are never prose.",
+		Description: "Flag markdown your change hard-wrapped mid-sentence",
+		Doc: "One sentence per line keeps a diff down to the sentence that changed. Hard " +
+			"wrapping means editing one sentence reflows every line after it, and the " +
+			"real change gets buried in the noise.\n" +
+			"Only lines your change touched are flagged. Code blocks and tables are " +
+			"never prose.\n" +
+			"Advisory by default. Plenty of people hard-wrap at 80 and are perfectly " +
+			"happy, so this is a house style rather than a correctness rule.",
 		Events: []hook.EventName{hook.PostToolUse},
 		Tools:  []string{"Write", "Edit", "MultiEdit"},
 		Config: defaultConfig(),

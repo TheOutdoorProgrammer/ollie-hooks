@@ -11,14 +11,16 @@ const RuleID = "secret-scan"
 func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
-		Description: "Scan the prompt for credentials and block before it is sent",
-		Doc: "UserPromptSubmit is the only event that can stop text before it reaches " +
-			"the API, so this is the last point a pasted credential can still be " +
-			"caught — PreToolUse is already too late, and a commit-time gate never " +
-			"sees chat at all.\n" +
-			"Findings name the kind and line, never the value: repeating a secret into " +
-			"the block reason would put it straight back into the transcript this rule " +
-			"exists to keep it out of.",
+		Description: "Catch a credential in your prompt and stop it before it is sent",
+		Doc: "`UserPromptSubmit` is the only event that can stop text before it reaches " +
+			"the API. By `PreToolUse` the prompt has already gone, and a commit-time " +
+			"secret scanner never sees chat at all. This is the last place to catch a " +
+			"pasted key.\n" +
+			"Findings tell you the kind and the line, never the value. Printing the " +
+			"secret into the block reason would drop it straight back into the " +
+			"transcript this rule exists to keep it out of.\n" +
+			"This one fails closed. If the scan times out you get told, because a " +
+			"prompt nobody scanned is exactly the outcome the rule is here to prevent.",
 		Events:           []hook.EventName{hook.UserPromptSubmit},
 		Config:           defaultConfig(),
 		Check:            checkSecrets,

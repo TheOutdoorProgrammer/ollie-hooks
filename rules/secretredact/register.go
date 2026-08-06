@@ -11,12 +11,16 @@ const RuleID = "secret-redact"
 func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
-		Description: "Replace credentials in tool output with a placeholder before Claude reads it",
-		Doc: "Once a secret reaches Claude's context it is in the transcript for good, " +
-			"and nothing downstream can take it back.\n" +
-			"Matches on the literal value rather than reported column offsets, because " +
-			"column arithmetic breaks on multibyte output and a partial redaction is " +
-			"worse than none — it looks like it worked.",
+		Description: "Strip credentials out of tool output before Claude ever sees them",
+		Doc: "The other half of `secret-scan`. That one watches what you type; this one " +
+			"watches what your tools hand back. `cat .env`, `env`, a curl response with " +
+			"a bearer token in it.\n" +
+			"Once a secret is in Claude's context it is in the transcript for good, and " +
+			"nothing downstream gets it back.\n" +
+			"It matches the literal value rather than the column offsets the scanner " +
+			"reports. Column arithmetic falls apart the moment output has multibyte " +
+			"characters in it, and a half-redacted secret is worse than none because it " +
+			"looks like it worked.",
 		Events:           []hook.EventName{hook.PostToolUse},
 		Config:           defaultConfig(),
 		Rewrite:          redactToolOutput,

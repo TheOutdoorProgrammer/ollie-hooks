@@ -9,10 +9,15 @@ const RuleID = "comments"
 func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
-		Description: "Flag verbose or agent-memo comments a change touched (advisory) — justify, slim, or remove",
-		Doc: "Scans only the comments an edit introduced or modified, so a file full of " +
-			"pre-existing prose never fires until you touch it.\n" +
-			"BDD markers, linter directives, shebangs and package doc comments are exempt.",
+		Description: "Flag bloated or self-narrating comments your change touched",
+		Doc: "Only comments your edit actually touched get flagged. A file full of old " +
+			"prose stays quiet until you go near it.\n" +
+			"The three triggers are length, line width, and comments that narrate the " +
+			"change instead of explaining the code. \"Changed X to Y\" is git's job.\n" +
+			"BDD markers, linter directives, shebangs and package doc comments are all " +
+			"exempt.\n" +
+			"Advisory by default, because comment style is an opinion and blocking on " +
+			"an opinion is obnoxious. Set `severity` if you want it enforced.",
 		Events: []hook.EventName{hook.PostToolUse},
 		Tools:  []string{"Write", "Edit", "MultiEdit"},
 		Config: defaultConfig(),

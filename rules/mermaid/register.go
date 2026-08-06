@@ -11,12 +11,14 @@ func Register() {
 	hook.Register(hook.Rule{
 		ID:          RuleID,
 		Description: "Render mermaid fences as terminal ASCII, inline while text streams",
-		Doc: "Renders as the message streams, so a diagram appears inline rather than " +
-			"after the fact.\n" +
-			"Needs Claude Code's `verbose` setting OFF — verbose shows the original " +
-			"text, which makes this rule look broken.\n" +
-			"Only `graph`/`flowchart`, `sequenceDiagram` and `erDiagram` parse; anything " +
-			"else, or anything wider than `width_cap`, keeps its fence unchanged.",
+		Doc: "It renders while the message is still streaming, so the diagram shows up " +
+			"in place rather than arriving after the text it belongs to.\n" +
+			"Claude Code's `verbose` setting has to be off. Verbose prints the original " +
+			"text, which makes this look like it is doing nothing. That trips people up " +
+			"more than anything else here.\n" +
+			"Only `graph` and `flowchart`, `sequenceDiagram` and `erDiagram` parse at " +
+			"all. Anything else, or anything wider than `width_cap`, keeps its fence and " +
+			"is left alone.",
 		Events:  []hook.EventName{hook.MessageDisplay},
 		Config:  defaultConfig(),
 		Display: displayMermaidStream,
