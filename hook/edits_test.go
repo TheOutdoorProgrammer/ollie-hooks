@@ -2,6 +2,7 @@ package hook
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"testing"
 )
 
@@ -78,4 +79,73 @@ func TestEditedFileDeclinesOtherTools(t *testing.T) {
 	if _, ok := noPath.EditedFile(); ok {
 		t.Error("a call with no path must decline")
 	}
+}
+
+// NotebookEdit puts the path under notebook_path. Reading only file_path let
+// every notebook edit slip past path-based rules unexamined, which nocodegen
+// had to work around with its own private decoder.
+func TestEditedFileReadsANotebookPath(t *testing.T) {
+	ev := &Event{
+		HookEventName: PreToolUse,
+		ToolName:      "NotebookEdit",
+		ToolInput: json.RawMessage(
+			`{"notebook_path":"/w/analysis.ipynb","new_source":"import os"}`),
+	}
+	f, ok := ev.EditedFile()
+	if !ok {
+		t.Fatal("a NotebookEdit must decode")
+	}
+	if f.Path != "/w/analysis.ipynb" {
+		t.Errorf("Path = %q", f.Path)
+	}
+	if got := f.Added(); len(got) != 1 || got[0] != "import os" {
+		t.Errorf("Added() = %v", got)
+	}
+}
+
+// A relative tool path is resolved against the event's cwd, so a path rule sees
+// one string however the call was phrased.
+func TestEditedFileResolvesAgainstCWD(t *testing.T) {
+	root := t.TempDir()
+	ev := &Event{
+		HookEventName: PreToolUse, ToolName: "Write", CWD: root,
+		ToolInput: json.RawMessage(`{"file_path":"sub/x.go","content":"package x"}`),
+	}
+	f, ok := ev.EditedFile()
+	if !ok {
+		t.Fatal("expected a decode")
+	}
+	if want := filepath.Join(root, "sub", "x.go"); f.Path != want {
+		t.Errorf("Path = %q, want %q", f.Path, want)
+	}
+}
+
+func TestEditedFileLeavesAnAbsolutePathAlone(t *testing.T) {
+	abs := filepath.Join(t.TempDir(), "x.go")
+	ev := &Event{
+		HookEventName: PreToolUse, ToolName: "Write", CWD: "/somewhere/else",
+		ToolInput: mustInput(t, map[string]string{"file_path": abs, "content": "x"}),
+	}
+	f, _ := ev.EditedFile()
+	if f.Path != abs {
+		t.Errorf("Path = %q, want %q", f.Path, abs)
+	}
+}
+
+// Ext is documented as lowercased, and a rule keyed on ".md" has to fire on
+// README.MD or the doc is a lie.
+func TestExtIsLowercased(t *testing.T) {
+	f := EditedFile{Path: "/w/README.MD"}
+	if got := f.Ext(); got != ".md" {
+		t.Errorf("Ext() = %q, want %q", got, ".md")
+	}
+}
+
+func mustInput(t *testing.T, v map[string]string) json.RawMessage {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }

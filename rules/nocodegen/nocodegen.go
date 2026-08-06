@@ -2,7 +2,6 @@ package nocodegen
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"strings"
 
@@ -18,14 +17,11 @@ func checkNoCodegen(ctx context.Context, ev *hook.Event) []hook.Finding {
 		return nil
 	}
 
-	path := targetPath(ev)
-	if path == "" {
+	f, ok := ev.EditedFile()
+	if !ok {
 		return nil
 	}
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(ev.CWD, path)
-	}
-	target := normalize(path)
+	target := normalize(f.Path)
 
 	for _, p := range cfg.Paths {
 		if p.Match == "" || !strings.Contains(target, normalize(p.Match)) {
@@ -34,22 +30,6 @@ func checkNoCodegen(ctx context.Context, ev *hook.Event) []hook.Finding {
 		return []hook.Finding{{Message: guidance(p)}}
 	}
 	return nil
-}
-
-// targetPath is the file a write-shaped tool is aimed at. NotebookEdit names it
-// notebook_path, and missing that field would silently exempt every notebook.
-func targetPath(ev *hook.Event) string {
-	var in struct {
-		FilePath     string `json:"file_path"`
-		NotebookPath string `json:"notebook_path"`
-	}
-	if err := json.Unmarshal(ev.ToolInput, &in); err != nil {
-		return "" // fail-open: a shape we can't read is not a violation
-	}
-	if in.FilePath != "" {
-		return in.FilePath
-	}
-	return in.NotebookPath
 }
 
 // normalize makes matching separator-agnostic. On Windows tool_input paths

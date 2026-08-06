@@ -86,38 +86,6 @@ func TestLinterForShebang(t *testing.T) {
 	}
 }
 
-func TestEditedFilePath(t *testing.T) {
-	// Paths are built with filepath and rooted at TempDir rather than written
-	// as "/a/b/c.md": on Windows that string is not absolute (no drive letter),
-	// so hardcoding it tests POSIX rather than the platform underfoot.
-	dir := t.TempDir()
-
-	fileInput := func(p string) json.RawMessage {
-		in, err := json.Marshal(map[string]string{"file_path": p})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return in
-	}
-
-	want := filepath.Join(dir, "c.md")
-	if abs := editedFilePath(&hook.Event{ToolInput: fileInput(want)}); abs != want {
-		t.Errorf("absolute path = %q, want %q", abs, want)
-	}
-
-	want = filepath.Join(dir, "sub", "c.md")
-	rel := editedFilePath(&hook.Event{CWD: dir, ToolInput: fileInput(filepath.Join("sub", "c.md"))})
-	if rel != want {
-		t.Errorf("relative path resolved against CWD = %q, want %q", rel, want)
-	}
-	// Fail-open: unreadable input or missing path yields "".
-	for _, in := range []string{``, `{}`, `{"file_path":""}`, `not json`} {
-		if p := editedFilePath(&hook.Event{ToolInput: json.RawMessage(in)}); p != "" {
-			t.Errorf("editedFilePath(%q) = %q, want empty", in, p)
-		}
-	}
-}
-
 func TestFilterLines(t *testing.T) {
 	// A markdownlint-cli2-style run: banner + summary must be dropped, only the
 	// file:line issue lines kept.

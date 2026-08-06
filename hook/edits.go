@@ -3,6 +3,7 @@ package hook
 import (
 	"encoding/json"
 	"path/filepath"
+	"strings"
 )
 
 // TextEdit is one before/after pair from a file-editing tool. A Write has no
@@ -29,9 +30,10 @@ func (f EditedFile) Added() []string {
 	return out
 }
 
-// Ext is the file's lowercased extension, including the dot.
+// Ext is the file's lowercased extension, including the dot. Lowercased
+// because a rule keyed on ".md" must still fire on README.MD.
 func (f EditedFile) Ext() string {
-	return filepath.Ext(f.Path)
+	return strings.ToLower(filepath.Ext(f.Path))
 }
 
 // EditedFile decodes a file-editing tool call. ok is false for any other tool,
@@ -39,24 +41,39 @@ func (f EditedFile) Ext() string {
 // something to guess at.
 func (e *Event) EditedFile() (EditedFile, bool) {
 	var in struct {
-		FilePath  string `json:"file_path"`
-		Content   string `json:"content"`
-		OldString string `json:"old_string"`
-		NewString string `json:"new_string"`
-		Edits     []struct {
+		FilePath string `json:"file_path"`
+		// NotebookEdit carries its path under a different key, and a rule that
+		// only reads file_path lets every notebook edit through unexamined.
+		NotebookPath string `json:"notebook_path"`
+		Content      string `json:"content"`
+		OldString    string `json:"old_string"`
+		NewString    string `json:"new_string"`
+		NewSource    string `json:"new_source"`
+		OldSource    string `json:"old_source"`
+		Edits        []struct {
 			OldString string `json:"old_string"`
 			NewString string `json:"new_string"`
 		} `json:"edits"`
 	}
-	if err := json.Unmarshal(e.ToolInput, &in); err != nil || in.FilePath == "" {
+	if err := json.Unmarshal(e.ToolInput, &in); err != nil {
 		return EditedFile{}, false
 	}
-	f := EditedFile{Path: in.FilePath}
+	path := in.FilePath
+	if path == "" {
+		path = in.NotebookPath
+	}
+	if path == "" {
+		return EditedFile{}, false
+	}
+
+	f := EditedFile{Path: absolutise(path, e.CWD)}
 	switch e.ToolName {
 	case "Write":
 		f.Edits = []TextEdit{{After: in.Content}}
 	case "Edit":
 		f.Edits = []TextEdit{{Before: in.OldString, After: in.NewString}}
+	case "NotebookEdit":
+		f.Edits = []TextEdit{{Before: in.OldSource, After: in.NewSource}}
 	case "MultiEdit":
 		for _, ed := range in.Edits {
 			f.Edits = append(f.Edits, TextEdit{Before: ed.OldString, After: ed.NewString})
@@ -65,4 +82,14 @@ func (e *Event) EditedFile() (EditedFile, bool) {
 		return EditedFile{}, false
 	}
 	return f, true
+}
+
+// absolutise resolves a relative tool path against the event's working
+// directory, so a path-matching rule sees the same string however the tool
+// call happened to be phrased.
+func absolutise(path, cwd string) string {
+	if cwd == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(cwd, path)
 }

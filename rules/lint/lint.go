@@ -2,7 +2,6 @@ package lint
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -87,10 +86,11 @@ var issueLine = regexp.MustCompile(`:\d+[: ]`)
 // edit already landed and this never blocks, so a block envelope would render
 // advisory output as a hook error. Fail-open at every step.
 func adviseLint(ctx context.Context, ev *hook.Event) *hook.Advice {
-	path := editedFilePath(ev)
-	if path == "" {
+	f, ok := ev.EditedFile()
+	if !ok {
 		return nil
 	}
+	path := filepath.Clean(f.Path)
 	spec, ok := linterFor(path)
 	if !ok {
 		return nil // no linter registered for this file type
@@ -133,22 +133,6 @@ func issueCount(n int) string {
 		return "1 issue"
 	}
 	return strconv.Itoa(n) + " issues"
-}
-
-// editedFilePath pulls the absolute, cleaned target path from a
-// Write/Edit/MultiEdit event, or "" if the input carries no readable path.
-func editedFilePath(ev *hook.Event) string {
-	var in struct {
-		FilePath string `json:"file_path"`
-	}
-	if err := json.Unmarshal(ev.ToolInput, &in); err != nil || in.FilePath == "" {
-		return ""
-	}
-	path := in.FilePath
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(ev.CWD, path)
-	}
-	return filepath.Clean(path)
 }
 
 // linterFor selects a linter by Dockerfile name first, then by extension. A
