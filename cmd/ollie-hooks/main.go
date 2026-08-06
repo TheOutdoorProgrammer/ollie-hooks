@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook"
@@ -20,6 +21,25 @@ var (
 	version = "dev"
 	commit  = "none"
 )
+
+func usage(w io.Writer) {
+	_, _ = fmt.Fprint(w, `ollie-hooks — a rule engine for Claude Code hooks.
+
+Usage:
+  ollie-hooks wiring     Print the settings.json entries that wire this up.
+  ollie-hooks version    Print the version.
+  ollie-hooks help       Print this.
+
+With no arguments it reads one hook event as JSON on stdin and writes the
+response envelope on stdout, which is how Claude Code invokes it.
+
+Rules ship disabled. Enable them in:
+  ~/.config/ollie-hooks/config.toml
+
+Set OLLIE_HOOKS_DEBUG=1 to trace which rules ran, and why the others did not.
+Docs: https://github.com/TheOutdoorProgrammer/ollie-hooks
+`)
+}
 
 func main() {
 	defer func() {
@@ -36,16 +56,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ollie-hooks: %v\n", err)
 	}
 
-	// Subcommands: everything else is hook mode (a JSON event on stdin).
+	// Claude Code invokes this with no arguments, so anything here came from a
+	// person. An unrecognised word must not fall through to hook mode, which
+	// would block reading an event off a terminal that will never send one.
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "wiring":
 			hook.PrintWiring()
-			return
 		case "version", "--version", "-v":
 			fmt.Printf("ollie-hooks %s (%s)\n", version, commit)
-			return
+		case "help", "--help", "-h":
+			usage(os.Stdout)
+		default:
+			fmt.Fprintf(os.Stderr, "ollie-hooks: unknown command %q\n\n", os.Args[1])
+			usage(os.Stderr)
+			os.Exit(2)
 		}
+		return
 	}
 
 	// DecodeEvent, not a plain Decode: it keeps the raw payload so per-event
