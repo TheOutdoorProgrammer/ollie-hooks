@@ -31,6 +31,18 @@ func TestAssertDeniedOnStop(t *testing.T) {
 	hooktest.AssertDenied(t, hooktest.Stop(t, "done"))
 }
 
+func TestSandboxIsolatesTheRegistry(t *testing.T) {
+	hooktest.Sandbox(t, []hook.Rule{{
+		ID: "sandbox-only", Events: []hook.EventName{hook.PreToolUse}, EnabledByDefault: true,
+		Check: func(context.Context, *hook.Event) []hook.Finding {
+			return []hook.Finding{{Message: "denied"}}
+		},
+	}})
+	// Inside the sandbox the fixture is the whole registry, so its deny lands
+	// and no other rule interferes.
+	hooktest.AssertDenied(t, hooktest.PreToolUse(t, "Bash", map[string]any{"command": "x"}))
+}
+
 func TestNewEventBuilders(t *testing.T) {
 	if ev := hooktest.UserPromptSubmit(t, "hello"); ev.HookEventName != hook.UserPromptSubmit || ev.Prompt != "hello" {
 		t.Errorf("UserPromptSubmit: %+v", ev)

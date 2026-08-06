@@ -54,6 +54,15 @@ func NoConfig(t *testing.T) {
 	Home(t, t.TempDir())
 }
 
+// Sandbox isolates the registry for one test: it installs rules as the only
+// ones, restores the previous set on cleanup, and points config at an empty
+// home so the fixtures run on their defaults. Pass nil to start from none.
+func Sandbox(t *testing.T, rules []hook.Rule) {
+	t.Helper()
+	NoConfig(t)
+	t.Cleanup(hook.SwapRegistry(rules))
+}
+
 func mustJSON(t *testing.T, v map[string]any) []byte {
 	t.Helper()
 	if v == nil {

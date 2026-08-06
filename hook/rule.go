@@ -169,6 +169,15 @@ type Finding struct {
 
 var registry []Rule
 
+// SwapRegistry installs rules and returns a func that restores the previous
+// set. It is the seam hooktest.Sandbox uses to isolate a test's rules without
+// reaching the unexported registry.
+func SwapRegistry(rules []Rule) (restore func()) {
+	saved := registry
+	registry = rules
+	return func() { registry = saved }
+}
+
 // registered reports whether a rule id is already taken, for callers that must
 // not risk Register's panic.
 func registered(id string) bool {
