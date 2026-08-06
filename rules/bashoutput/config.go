@@ -14,9 +14,9 @@ type config struct {
 func defaultConfig() config {
 	return config{
 		MinLines:     5,
-		CommandColor: "50fa7b",
-		FailedColor:  "ff5555",
-		OutputColor:  "f8f8f2",
+		CommandColor: hook.DraculaGreen,
+		FailedColor:  hook.DraculaRed,
+		OutputColor:  hook.DraculaForeground,
 	}
 }
 

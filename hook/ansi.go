@@ -11,6 +11,23 @@ import (
 // Reset ends a colour run.
 const Reset = "\x1b[0m"
 
+// Dracula palette (https://draculatheme.com/spec) as bare hex triples, so they
+// drop straight into a colour config or Paint. Rules should reach for these
+// over hardcoded hex to keep ollie-hooks output one coherent theme.
+const (
+	DraculaBackground  = "282a36"
+	DraculaCurrentLine = "44475a"
+	DraculaForeground  = "f8f8f2"
+	DraculaComment     = "6272a4"
+	DraculaCyan        = "8be9fd"
+	DraculaGreen       = "50fa7b"
+	DraculaOrange      = "ffb86c"
+	DraculaPink        = "ff79c6"
+	DraculaPurple      = "bd93f9"
+	DraculaRed         = "ff5555"
+	DraculaYellow      = "f1fa8c"
+)
+
 // Paint wraps each line separately in a truecolor escape. Per line, not once
 // around the block: Claude Code indents continuation lines, and a colour left
 // open across that prefix bleeds into the UI's own output.

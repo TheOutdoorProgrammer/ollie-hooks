@@ -22,7 +22,7 @@ func displayBashOutput(ctx context.Context, ev *hook.Event) *hook.DisplayContent
 	// A failed command fires PostToolUseFailure instead, with no tool_response:
 	// `error` already holds the exit code plus the combined output.
 	body, headerColor := bashBody(ev), cfg.CommandColor
-	if ev.HookEventName == "PostToolUseFailure" {
+	if ev.HookEventName == hook.PostToolUseFailure {
 		headerColor = cfg.FailedColor
 	}
 	if strings.TrimSpace(body) == "" {
@@ -43,7 +43,7 @@ func displayBashOutput(ctx context.Context, ev *hook.Event) *hook.DisplayContent
 // bashBody is the text to echo: stdout+stderr on success, and on failure the
 // `error` string, which already carries the exit code and combined output.
 func bashBody(ev *hook.Event) string {
-	if ev.HookEventName == "PostToolUseFailure" {
+	if ev.HookEventName == hook.PostToolUseFailure {
 		return strings.TrimRight(ev.Error, "\n")
 	}
 	var resp bashResponse
