@@ -3,6 +3,7 @@ package hook
 import (
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // defaultWrapWidth bounds a finding row. Hooks run with no controlling
@@ -72,7 +73,7 @@ func fitFindings(findings []Finding, encode func([]Finding) (string, error)) ([]
 		copy(trimmed, findings[:n])
 		trimmed = append(trimmed, Finding{
 			Rule:    "…",
-			Message: strconv.Itoa(len(findings)-n) + " more finding(s) omitted to fit the output limit",
+			Message: strconv.Itoa(len(findings)-n) + " more line(s) omitted to fit the output limit",
 		})
 		out, err = encode(trimmed)
 		if err != nil {
@@ -110,21 +111,39 @@ func wrapText(s string, width int) []string {
 	var (
 		lines []string
 		cur   strings.Builder
+		// Counted in runes, because width is a column budget. Builder.Len is
+		// bytes, so mixing the two wrapped multibyte text about three times
+		// narrower than asked.
+		n int
 	)
 	for _, w := range words {
+		wl := utf8.RuneCountInString(w)
 		switch {
-		case cur.Len() == 0:
+		case n == 0:
 			cur.WriteString(w)
-		case cur.Len()+1+len([]rune(w)) <= width:
+			n = wl
+		case n+1+wl <= width:
 			cur.WriteString(" " + w)
+			n += 1 + wl
 		default:
 			lines = append(lines, cur.String())
 			cur.Reset()
 			cur.WriteString(w)
+			n = wl
 		}
 	}
-	if cur.Len() > 0 {
+	if n > 0 {
 		lines = append(lines, cur.String())
 	}
 	return lines
+}
+
+// Truncate shortens s to at most n runes, marking the cut with an ellipsis.
+// Runes rather than bytes: slicing a byte index lands mid-character on any
+// non-ASCII text and puts invalid UTF-8 into the finding.
+func Truncate(s string, n int) string {
+	if n <= 0 || utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n-1]) + "…"
 }

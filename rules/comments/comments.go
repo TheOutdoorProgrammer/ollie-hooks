@@ -112,11 +112,7 @@ func triggerReason(c scannedComment, cfg config) (string, bool) {
 }
 
 func truncateComment(c scannedComment) string {
-	s := strings.TrimSpace(strings.Join(c.lines, " "))
-	if len(s) > 120 {
-		return s[:117] + "..."
-	}
-	return s
+	return hook.Truncate(strings.TrimSpace(strings.Join(c.lines, " ")), 120)
 }
 
 // commentGuidance tells the model how to resolve each flagged comment. Newlines

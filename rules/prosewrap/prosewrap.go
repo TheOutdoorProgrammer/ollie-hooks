@@ -46,9 +46,5 @@ func proseGuidance() string {
 }
 
 func truncateProse(text string) string {
-	const limit = 90
-	if len(text) <= limit {
-		return text
-	}
-	return text[:limit] + "…"
+	return hook.Truncate(text, 90)
 }
