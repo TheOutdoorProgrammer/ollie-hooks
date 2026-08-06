@@ -116,7 +116,7 @@ func truncateComment(c scannedComment) string {
 }
 
 // commentGuidance tells the model how to resolve each flagged comment. Newlines
-// split into separate rows via expandFindings (TOON is line-oriented).
+// split into separate rows via expandFindings, one per rendered table line.
 // Priority structure derived from comment-checker (MIT) — see NOTICE.
 func commentGuidance(memo bool) string {
 	base := "Comment gate: your change touched comment(s) that are verbose or read like agent memos " +
@@ -188,24 +188,36 @@ func isDirective(text string) bool {
 
 // --- agent-memo detection: vocabulary from comment-checker (MIT), see NOTICE
 
+// memoPrefixes open a comment that narrates a change. Present-tense verbs
+// ("update", "replace") are omitted: they collide with Go doc comments whose
+// first word is the identifier, e.g. "Update refreshes the token".
 var memoPrefixes = []string{
-	"added ", "add ", "after this", "before this",
-	"changed ", "change ", "converted ", "convert ",
-	"deleted ", "delete ", "here we ",
-	"implemented ", "implement ", "implementation of", "implementation note",
-	"modified ", "modify ", "moved ", "move ", "migrated ", "migrate ",
+	"added ", "after this", "before this",
+	"changed ", "converted ",
+	"deleted ", "here we ",
+	"implemented ", "implementation note",
+	"modified ", "moved ", "migrated ",
 	"now we ", "now this ", "now it ", "note:",
-	"previously ", "refactor", "replaced ", "replace ", "removed ", "remove ",
-	"renamed ", "rename ", "switched ", "switch ",
-	"updated ", "update ", "was changed",
+	"previously ", "refactored ", "replaced ", "removed ",
+	"renamed ", "switched ",
+	"updated ", "was changed",
 	"this implements", "this adds", "this removes", "this changes", "this fixes",
 }
+
+// memoPhrases are agent tells that land anywhere in a line, not just at the
+// start — "load-bearing" is AI-comment boilerplate wherever it sits.
+var memoPhrases = []string{"load-bearing", "load bearing"}
 
 func isAgentMemo(c scannedComment) bool {
 	for _, l := range c.lines {
 		t := strings.ToLower(stripMarkers(l))
 		for _, p := range memoPrefixes {
 			if strings.HasPrefix(t, p) {
+				return true
+			}
+		}
+		for _, p := range memoPhrases {
+			if strings.Contains(t, p) {
 				return true
 			}
 		}

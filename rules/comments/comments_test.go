@@ -92,13 +92,22 @@ func TestSkipWhitelisted(t *testing.T) {
 }
 
 func TestIsAgentMemo(t *testing.T) {
-	memo := []string{"// changed foo to bar", "# now this works", "// this implements X", "// int -> string"}
+	memo := []string{
+		"// changed foo to bar", "# now this works", "// this implements X",
+		"// int -> string", "// this line is load-bearing", "// the mutex is load bearing",
+	}
 	for _, m := range memo {
 		if !isAgentMemo(scannedComment{lines: []string{m}}) {
 			t.Errorf("should be memo: %q", m)
 		}
 	}
-	notMemo := []string{"// returns the running total", "# the authenticated user id"}
+	// Go doc comments open with the identifier, which is often a present-tense
+	// verb — those must not read as memos, or the gate fires on ordinary docs.
+	notMemo := []string{
+		"// returns the running total", "# the authenticated user id",
+		"// Update refreshes the cached token", "// Replace swaps the marked block",
+		"// Add inserts the item into the set", "// Remove deletes the entry",
+	}
 	for _, m := range notMemo {
 		if isAgentMemo(scannedComment{lines: []string{m}}) {
 			t.Errorf("should NOT be memo: %q", m)
