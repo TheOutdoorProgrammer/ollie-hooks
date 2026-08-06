@@ -149,11 +149,67 @@ func TestBlockedPromptIsSuppressed(t *testing.T) {
 
 // A Gate on a non-PreToolUse event used to emit hookEventName "PreToolUse".
 func TestGateEnvelopeNamesItsOwnEvent(t *testing.T) {
-	out, err := respondDecision("PermissionRequest", &Decision{Permission: "deny", Reason: "no"})
+	out, err := respondDecision("PermissionRequest", &Decision{Permission: "deny", Reason: "no"}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, `"hookEventName":"PermissionRequest"`) {
 		t.Errorf("envelope must name the real event, got %q", out)
+	}
+}
+
+// A Gate that allows a call must not swallow what every other rule produced for
+// the same event. Advisory findings and screen echo used to vanish the moment
+// any gate returned a decision, including a plain allow.
+func TestGateKeepsAdviceAndEcho(t *testing.T) {
+	out, err := respondDecision(PreToolUse,
+		&Decision{Permission: "allow", Reason: "fine"}, "on screen", "for the model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`"permissionDecision":"allow"`,
+		`"systemMessage":"on screen"`,
+		`"additionalContext":"for the model"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %s in %q", want, out)
+		}
+	}
+}
+
+// End-to-end through Decide, which is where the drop actually happened: the
+// helpers were fine in isolation and the seam between them was not.
+func TestDecideKeepsAdvisoriesWhenAGateAllows(t *testing.T) {
+	writeUserConfig(t, `
+[rules.gate-demo]
+enabled = true
+
+[rules.advice-demo]
+enabled = true
+`)
+	saved := registry
+	t.Cleanup(func() { registry = saved })
+	registry = []Rule{
+		{
+			ID: "advice-demo", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+			Advise: func(context.Context, *Event) *Advice {
+				return &Advice{Text: "worth knowing"}
+			},
+		},
+		{
+			ID: "gate-demo", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+			Gate: func(context.Context, *Event) *Decision {
+				return &Decision{Permission: "allow", Reason: "ok"}
+			},
+		},
+	}
+
+	out, err := Decide(&Event{HookEventName: PreToolUse, ToolName: "Bash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "worth knowing") {
+		t.Errorf("advice was dropped when a gate allowed the call: %q", out)
 	}
 }

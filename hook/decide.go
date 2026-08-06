@@ -55,7 +55,7 @@ func Decide(ev *Event) (string, error) {
 	// only after Run means a Check deny short-circuits before an interactive
 	// gate ever opens.
 	if d := RunGates(ev); d != nil {
-		return respondDecision(ev.HookEventName, d)
+		return respondDecision(ev.HookEventName, d, echo, advice)
 	}
 	// Rewrites are event-scoped by the registry: PreToolUse transforms the
 	// input, PostToolUse the result Claude is about to read.
@@ -246,15 +246,21 @@ func respondDisplay(event EventName, dc *DisplayContent) (string, error) {
 	return string(raw), nil
 }
 
-// respondDecision builds the envelope for a Gate verdict. Reason is a plain
-// string (not TOON findings), so multiline feedback needs no expansion.
-func respondDecision(event EventName, d *Decision) (string, error) {
-	envelope := map[string]any{
-		"hookSpecificOutput": map[string]any{
-			"hookEventName":            event,
-			"permissionDecision":       d.Permission,
-			"permissionDecisionReason": d.Reason,
-		},
+// respondDecision builds the envelope for a Gate verdict. echo and advice ride
+// along, or a gate that merely allows a call would swallow every other rule's
+// output for that event.
+func respondDecision(event EventName, d *Decision, echo, advice string) (string, error) {
+	hso := map[string]any{
+		"hookEventName":            string(event),
+		"permissionDecision":       d.Permission,
+		"permissionDecisionReason": d.Reason,
+	}
+	if advice != "" {
+		hso["additionalContext"] = advice
+	}
+	envelope := map[string]any{"hookSpecificOutput": hso}
+	if echo != "" {
+		envelope["systemMessage"] = systemMessageText(echo)
 	}
 	raw, err := json.Marshal(envelope)
 	if err != nil {
