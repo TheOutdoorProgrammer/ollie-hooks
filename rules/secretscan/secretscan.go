@@ -31,15 +31,6 @@ func checkSecrets(ctx context.Context, ev *hook.Event) []hook.Finding {
 	if strings.TrimSpace(ev.Prompt) == "" {
 		return nil
 	}
-	// RequiresBinaries is static, so it vets betterleaks — not whatever the user
-	// pointed `binary` at. That substitution has to fail closed here instead,
-	// and the hint must name the tool they actually chose.
-	if cfg.Binary != defaultConfig().Binary && !hook.Installed(cfg.Binary) {
-		return []hook.Finding{hook.MissingBinary(RuleID, cfg.Binary,
-			"install "+cfg.Binary+", or unset [rules."+RuleID+"].binary to use "+
-				defaultConfig().Binary)}
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, scanTimeout)
 	defer cancel()
 	res, ok := hook.Exec(ctx, ev.Prompt, cfg.Binary,

@@ -21,10 +21,10 @@ func Register() {
 			"transcript this rule exists to keep it out of.\n" +
 			"This one fails closed. If the scan times out you get told, because a " +
 			"prompt nobody scanned is exactly the outcome the rule is here to prevent.",
-		Events:           []hook.EventName{hook.UserPromptSubmit},
-		Config:           defaultConfig(),
-		Check:            checkSecrets,
-		RequiresBinaries: []hook.Binary{{Bin: "betterleaks", Install: "brew install betterleaks"}},
+		Events:   []hook.EventName{hook.UserPromptSubmit},
+		Config:   defaultConfig(),
+		Check:    checkSecrets,
+		Binaries: configuredScanner,
 		// An unscanned prompt is the outcome this rule exists to prevent, so a
 		// timeout must be reported rather than passed over.
 		FailClosedOnTimeout: true,

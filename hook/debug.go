@@ -49,7 +49,7 @@ func (r Rule) skipReason(ev *Event) string {
 	if !RuleEnabled(r.ID, r.EnabledByDefault) {
 		return "disabled in config"
 	}
-	if missing := MissingBinaries(r.RequiresBinaries); len(missing) > 0 {
+	if missing := MissingBinaries(r.needs()); len(missing) > 0 {
 		return "missing binary " + missing[0].Bin
 	}
 	return ""

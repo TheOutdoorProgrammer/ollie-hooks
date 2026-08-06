@@ -76,7 +76,7 @@ func TestDisabledByDefault(t *testing.T) {
 func TestMissingScannerBlocksLoudly(t *testing.T) {
 	hooktest.Config(t, RuleID, "enabled = true\nbinary = \"definitely-not-a-scanner-xyzzy\"")
 	got := checkSecrets(context.Background(), promptEvent("token "+fakePAT()))
-	hooktest.AssertFinding(t, got, "not installed")
+	hooktest.AssertFinding(t, got, "NOT scanned")
 }
 
 // Output that is not a report means the scan failed, NOT that the prompt was
@@ -110,5 +110,28 @@ func TestDescribeNamesTheKindOnce(t *testing.T) {
 	}
 	if !strings.Contains(got, "aws-key") {
 		t.Errorf("every distinct kind must be named: %q", got)
+	}
+}
+
+// A scanner the user repointed is vetted by the framework too, via the rule's
+// dynamic Binaries. A static list only ever checked the built-in default, so an
+// absent replacement produced no findings at all — indistinguishable from clean.
+func TestARepointedScannerIsStillVetted(t *testing.T) {
+	hooktest.Config(t, RuleID, "enabled = true\nbinary = \"definitely-not-a-scanner-xyzzy\"")
+
+	var found []hook.Binary
+	for _, r := range hook.Registered() {
+		if r.ID == RuleID && r.Binaries != nil {
+			found = r.Binaries()
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("rule should declare the scanner it will actually run, got %v", found)
+	}
+	if found[0].Bin != "definitely-not-a-scanner-xyzzy" {
+		t.Errorf("declared %q, want the configured binary", found[0].Bin)
+	}
+	if len(hook.MissingBinaries(found)) != 1 {
+		t.Error("an absent configured scanner must register as missing")
 	}
 }

@@ -21,9 +21,9 @@ func Register() {
 			"reports. Column arithmetic falls apart the moment output has multibyte " +
 			"characters in it, and a half-redacted secret is worse than none because it " +
 			"looks like it worked.",
-		Events:           []hook.EventName{hook.PostToolUse},
-		Config:           defaultConfig(),
-		Rewrite:          redactToolOutput,
-		RequiresBinaries: []hook.Binary{{Bin: "betterleaks", Install: "brew install betterleaks"}},
+		Events:   []hook.EventName{hook.PostToolUse},
+		Config:   defaultConfig(),
+		Rewrite:  redactToolOutput,
+		Binaries: configuredScanner,
 	})
 }

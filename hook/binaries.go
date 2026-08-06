@@ -109,3 +109,13 @@ func missingBinaryFindings(rule string, missing []Binary) []Finding {
 	}
 	return out
 }
+
+// needs is every binary a rule depends on: the static list plus whatever its
+// config turned out to point at.
+func (r Rule) needs() []Binary {
+	bins := r.RequiresBinaries
+	if r.Binaries != nil {
+		bins = append(append([]Binary{}, bins...), r.Binaries()...)
+	}
+	return bins
+}

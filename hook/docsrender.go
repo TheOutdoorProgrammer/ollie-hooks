@@ -224,8 +224,8 @@ func WriteRuleDocs(w io.Writer) {
 			p("| Tools | %s |", codeList(r.Tools))
 		}
 		p("| Verb | %s |", r.verb())
-		if len(r.RequiresBinaries) > 0 {
-			p("| Needs | %s |", binaryList(r.RequiresBinaries))
+		if needs := r.needs(); len(needs) > 0 {
+			p("| Needs | %s |", binaryList(needs))
 		}
 		p("| Enabled by default | %s |", yesNo(r.EnabledByDefault))
 
@@ -291,7 +291,7 @@ func WriteRuleList(w io.Writer) {
 			}
 		}
 		_, _ = fmt.Fprintf(w, "%-*s  %-9s %-8s %s\n", width, r.ID, state, r.verb(), r.Description)
-		if missing := MissingBinaries(r.RequiresBinaries); len(missing) > 0 {
+		if missing := MissingBinaries(r.needs()); len(missing) > 0 {
 			for _, m := range missing {
 				_, _ = fmt.Fprintf(w, "%-*s  %-9s missing %s (%s)\n", width, "", "", m.Bin, m.Install)
 			}

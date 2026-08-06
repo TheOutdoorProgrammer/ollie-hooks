@@ -29,3 +29,16 @@ func loadConfig() config {
 	}
 	return cfg
 }
+
+// configuredScanner names the scanner this rule will actually run, which is
+// not always the built-in one. Declaring it dynamically lets the framework
+// report a missing tool; a static list only ever vets the default, so a
+// repointed binary that is absent looks exactly like a clean result.
+func configuredScanner() []hook.Binary {
+	bin := loadConfig().Binary
+	install := "brew install betterleaks"
+	if bin != defaultConfig().Binary {
+		install = "install " + bin + ", or unset [rules." + RuleID + "].binary"
+	}
+	return []hook.Binary{{Bin: bin, Install: install}}
+}

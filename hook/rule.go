@@ -56,6 +56,10 @@ type Rule struct {
 	// are executables on PATH, not Claude Code tools — an enabled rule missing one
 	// reports that instead of running, rather than passing silently.
 	RequiresBinaries []Binary
+	// Binaries reports the same thing for tools only known once config is read,
+	// such as a scanner the user repointed. Without it those go unvetted, and a
+	// rule whose tool is missing looks exactly like one that found nothing.
+	Binaries func() []Binary
 	// EnabledByDefault rules run without configuration. Anything that blocks,
 	// rewrites or costs real time should leave this false: a tool that starts
 	// denying calls the moment it is installed is a bad first impression.
@@ -305,7 +309,7 @@ func RunChecks(ev *Event) CheckResults {
 		}
 		// Every verb's missing binaries surface here, in the blocking channel:
 		// an enabled check that cannot run is a failure, not a suggestion.
-		if missing := MissingBinaries(r.RequiresBinaries); len(missing) > 0 {
+		if missing := MissingBinaries(r.needs()); len(missing) > 0 {
 			res.Findings = append(res.Findings, missingBinaryFindings(r.ID, missing)...)
 			continue
 		}
