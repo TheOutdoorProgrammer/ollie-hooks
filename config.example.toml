@@ -154,6 +154,7 @@
 # ignore_paths       = []                   # skip any path containing one of these
 # extensions         = [".md", ".markdown"] # file extensions this applies to
 # max_reported       = 10                   # stop listing wrapped lines after this many
+# flag_em_dashes     = false                # also flag touched lines that use an em-dash
 
 # ────────────────────────────────────────────────────────────────────────
 # Output formatting, shared by every rule.
