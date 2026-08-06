@@ -69,6 +69,13 @@ type Rule struct {
 	// NOT running is itself the failure — an unscanned prompt is exactly what
 	// secret-scan exists to prevent, and silence looks identical to success.
 	FailClosedOnTimeout bool
+	// Doc is the rule's paragraph in the generated reference; Description stays
+	// the one-liner.
+	Doc string
+	// Config is the rule's defaults, the same value its loader layers the user's
+	// section over, so documented defaults cannot drift from real ones. Every
+	// exported field needs a toml and a doc tag or Register rejects the rule.
+	Config any
 }
 
 // Advice is non-blocking context for the model. Phrase it as statements of
@@ -144,6 +151,9 @@ func Register(r Rule) {
 	}
 	if registered(r.ID) {
 		panic("hooks: rule " + r.ID + " registered twice")
+	}
+	if err := checkConfigTags(r.ID, r.Config); err != nil {
+		panic("hooks: rule " + r.ID + ": " + err.Error())
 	}
 	// Fail loudly at startup, not silently forever: an event whose envelope has
 	// no path for this verb would accept the rule and never run it.
