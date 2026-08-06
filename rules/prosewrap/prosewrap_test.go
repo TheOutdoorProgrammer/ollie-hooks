@@ -23,7 +23,7 @@ func pwEdit(path, oldS, newS string) *hook.Event {
 const wrapped = "This is a sentence that someone\nwrapped by hand.\n"
 
 func TestCheckProseWrapWrite(t *testing.T) {
-	t.Setenv("HOME", t.TempDir()) // no config file → built-in defaults
+	hooktest.NoConfig(t) // no config file → built-in defaults
 
 	if got := checkProseWrap(context.Background(), pwWrite("notes.md", wrapped)); len(got) == 0 {
 		t.Fatal("want findings for hand-wrapped markdown, got none")
@@ -36,7 +36,7 @@ func TestCheckProseWrapWrite(t *testing.T) {
 // The rule is markdown-only: source files have their own comment budget, and a
 // long line there is the comments rule's business, not this one's.
 func TestCheckProseWrapOnlyMarkdown(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	hooktest.NoConfig(t)
 
 	for _, path := range []string{"main.go", "script.sh", "config.yaml", "README.txt"} {
 		if got := checkProseWrap(context.Background(), pwWrite(path, wrapped)); got != nil {
@@ -53,7 +53,7 @@ func TestCheckProseWrapOnlyMarkdown(t *testing.T) {
 // Only the text an Edit introduced is judged, so editing one paragraph never
 // reports the rest of an already-wrapped file.
 func TestCheckProseWrapScopedToTheEdit(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	hooktest.NoConfig(t)
 
 	if got := checkProseWrap(context.Background(), pwEdit("notes.md", wrapped, "One clean sentence.\n")); got != nil {
 		t.Fatalf("want no findings when the new text is clean, got %v", hooktest.Messages(got))
@@ -64,7 +64,7 @@ func TestCheckProseWrapScopedToTheEdit(t *testing.T) {
 }
 
 func TestCheckProseWrapMultiEdit(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	hooktest.NoConfig(t)
 
 	in, _ := json.Marshal(map[string]any{
 		"file_path": "notes.md",

@@ -21,7 +21,7 @@ func ccEdit(path, oldS, newS string) *hook.Event {
 }
 
 func TestCheckCommentsWrite(t *testing.T) {
-	t.Setenv("HOME", t.TempDir()) // no config file → built-in defaults (3 lines, 80 chars)
+	hooktest.NoConfig(t) // no config file → built-in defaults (3 lines, 80 chars)
 	long := "// " + strings.Repeat("x", 90)
 	cases := []struct {
 		name, content string
@@ -47,7 +47,7 @@ func TestCheckCommentsWrite(t *testing.T) {
 }
 
 func TestCheckCommentsEditScoping(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	hooktest.NoConfig(t)
 	block := "// a\n// b\n// c\n// d\n" // a 4-line block that would fire if touched
 
 	// The block is unchanged between old and new (only surrounding code changed)
@@ -62,7 +62,7 @@ func TestCheckCommentsEditScoping(t *testing.T) {
 }
 
 func TestMemoGuidanceVariant(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	hooktest.NoConfig(t)
 	got := checkComments(context.Background(), ccWrite("/tmp/x.go", "// changed foo to bar\nfunc f(){}\n"))
 	if len(got) == 0 || !strings.Contains(got[0].Message, "AGENT-MEMO") {
 		t.Errorf("memo case should lead with the AGENT-MEMO guidance: %s", hooktest.Messages(got))

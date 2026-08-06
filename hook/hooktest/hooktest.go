@@ -16,16 +16,24 @@ import (
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 )
 
-// Config redirects config lookups to a disposable home and writes body as the
-// [rules.<id>] section. Clearing XDG_CONFIG_HOME matters: without it a
-// developer who sets that variable gets different results from CI.
-func Config(t *testing.T, ruleID, body string) {
+// Home points every config and state lookup at dir. USERPROFILE goes with HOME
+// because os.UserHomeDir reads that one on Windows, where setting HOME alone
+// leaves the test quietly reading the real user's config.
+func Home(t *testing.T, dir string) {
 	t.Helper()
-	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_STATE_HOME", "")
 	t.Setenv("CLAUDE_PLUGIN_DATA", "")
+}
+
+// Config redirects config lookups to a disposable home and writes body as the
+// [rules.<id>] section.
+func Config(t *testing.T, ruleID, body string) {
+	t.Helper()
+	dir := t.TempDir()
+	Home(t, dir)
 	cfgDir := filepath.Join(dir, ".config", "ollie-hooks")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -39,10 +47,7 @@ func Config(t *testing.T, ruleID, body string) {
 // NoConfig points lookups at an empty home, so a rule uses its defaults.
 func NoConfig(t *testing.T) {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("XDG_CONFIG_HOME", "")
-	t.Setenv("XDG_STATE_HOME", "")
-	t.Setenv("CLAUDE_PLUGIN_DATA", "")
+	Home(t, t.TempDir())
 }
 
 func mustJSON(t *testing.T, v map[string]any) []byte {

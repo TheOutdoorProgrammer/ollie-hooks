@@ -14,6 +14,9 @@ func writeUserConfig(t *testing.T, body string) {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	// os.UserHomeDir reads USERPROFILE on Windows, so HOME alone would leave
+	// these tests reading the real user's config.
+	t.Setenv("USERPROFILE", dir)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_STATE_HOME", "")
 	t.Setenv("CLAUDE_PLUGIN_DATA", "")
