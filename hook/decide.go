@@ -20,8 +20,8 @@ import (
 //
 //  1. Findings win. If any Check rule produces findings, the event is
 //     denied/advised — full stop. (SingleFailure only changes WHICH findings
-//     Run returns, never whether findings exist, so a SingleFailure deny still
-//     lands here and short-circuits the rewrite below.)
+//     RunChecks returns, never whether findings exist, so a SingleFailure
+//     deny still lands here and short-circuits the rewrite below.)
 //  2. Only when nothing denied does a Rewrite rule transform the call — the
 //     input on PreToolUse, the result on PostToolUse. A blocked call is
 //     therefore never silently rewritten.
@@ -53,7 +53,7 @@ func Decide(ev *Event) (string, error) {
 		return respond(ev.HookEventName, findings, echo, advice)
 	}
 	// Gate before Rewrite: a gate can approve or deny outright, and running it
-	// only after Run means a Check deny short-circuits before an interactive
+	// only after RunChecks means a Check deny short-circuits before an interactive
 	// gate ever opens.
 	if d := RunGates(ev); d != nil {
 		return respondDecision(ev.HookEventName, d, echo, advice)
@@ -179,11 +179,24 @@ func joinAdvice(advice []Advice) string {
 // permission flow to act on the new value.
 func respondRewrite(event EventName, m *Mutation, echo, advice string) (string, error) {
 	hso := map[string]any{"hookEventName": string(event)}
-	switch {
-	case m.UpdatedInput != nil:
-		hso["updatedInput"] = m.UpdatedInput
-	case m.UpdatedOutput != nil:
-		hso["updatedToolOutput"] = m.UpdatedOutput
+	// Field applicability is per-event: PreToolUse rewrites input, PostToolUse
+	// rewrites output. Trace the wrong one rather than emit an envelope key the
+	// event ignores — a rewrite that vanishes with no signal is the trap.
+	switch event {
+	case PreToolUse:
+		if m.UpdatedInput != nil {
+			hso["updatedInput"] = m.UpdatedInput
+		}
+		if m.UpdatedOutput != nil {
+			tracef("rule %s set UpdatedOutput on %s; only UpdatedInput applies, ignored", m.Rule, event)
+		}
+	case PostToolUse:
+		if m.UpdatedOutput != nil {
+			hso["updatedToolOutput"] = m.UpdatedOutput
+		}
+		if m.UpdatedInput != nil {
+			tracef("rule %s set UpdatedInput on %s; only UpdatedOutput applies, ignored", m.Rule, event)
+		}
 	}
 	if note := NormalizeProse(m.Note); note != "" {
 		advice = strings.TrimSpace(advice + "\n\n[" + m.Rule + "] " + note)

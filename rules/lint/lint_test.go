@@ -231,7 +231,7 @@ func TestCheckLintEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	lintersByExt[".fixture"] = linterSpec{name: "cleanlint", cmd: clean}
-	if f := hook.Run(ev); f != nil {
+	if f := hook.RunChecks(ev).Findings; f != nil {
 		t.Errorf("clean linter should yield no findings, got %v", f)
 	}
 }

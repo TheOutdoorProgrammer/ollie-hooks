@@ -59,7 +59,7 @@ func (r Rule) skipReason(ev *Event) string {
 // budget matters: the fix is usually raising it, not disabling the check.
 func timedOut(r Rule) Finding {
 	return Finding{Rule: r.ID, Message: `
-		This check did NOT complete — it exceeded its ` +
+		This rule did NOT complete — it exceeded its ` +
 		fmt.Sprint(RuleTimeout(r.ID, r.Timeout)) + `s budget and was abandoned.
 		It is configured to fail closed, so the call is blocked rather than
 		passing unchecked. Raise [rules.` + r.ID + `].timeout, or disable the

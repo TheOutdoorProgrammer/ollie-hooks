@@ -67,11 +67,9 @@ type Rule struct {
 	// DefaultSeverity is how this rule's findings arrive unless the user says
 	// otherwise (empty = block). Only Check rules use it.
 	DefaultSeverity Severity
-	// FailClosedOnTimeout reports a rule that overran instead of skipping it.
-	// Off by default: a hung rule blocking every tool call wedges the session,
-	// which is the one thing this framework promises never to do. Set it where
-	// NOT running is itself the failure — an unscanned prompt is exactly what
-	// secret-scan exists to prevent, and silence looks identical to success.
+	// FailClosedOnTimeout blocks instead of skipping when a Check or Gate rule
+	// overruns. Off by default — a hung rule must never wedge the session — so
+	// set it only where NOT running is the failure, as secret-scan does.
 	FailClosedOnTimeout bool
 	// Doc is the rule's paragraph in the generated reference; Description stays
 	// the one-liner.
@@ -89,6 +87,8 @@ type Rule struct {
 // fact: text shaped like an out-of-band instruction trips Claude's
 // prompt-injection defences and gets shown to the user instead.
 type Advice struct {
+	// Rule is filled in by the framework with the firing rule's ID; any value
+	// you set here is overwritten.
 	Rule string
 	Text string
 }
@@ -99,6 +99,8 @@ type Advice struct {
 // Text is emitted verbatim, so a rule that changes nothing must return the
 // delta unchanged rather than nil-ing out the screen.
 type DisplayContent struct {
+	// Rule is filled in by the framework with the firing rule's ID; any value
+	// you set here is overwritten.
 	Rule string
 	Text string
 }
@@ -121,6 +123,8 @@ const (
 // PermissionRequest that is not neutral: a session with no prompt to show
 // denies the call when nothing decides.
 type Decision struct {
+	// Rule is filled in by the framework with the firing rule's ID; any value
+	// you set here is overwritten.
 	Rule string
 	// Permission is the verdict, from the constants above. PreToolUse and
 	// PermissionRequest take allow/deny; Elicitation takes accept/decline/cancel.
@@ -137,8 +141,10 @@ type Decision struct {
 }
 
 // Mutation transforms a tool call instead of blocking it. Which field applies
-// depends on the event, and setting the wrong one is silently ignored.
+// depends on the event; setting the wrong one is ignored and traced.
 type Mutation struct {
+	// Rule is filled in by the framework with the firing rule's ID; any value
+	// you set here is overwritten.
 	Rule string
 	// UpdatedInput replaces a tool's arguments before it runs (PreToolUse). It
 	// replaces the WHOLE object, so start from the decoded input or fields the
@@ -190,6 +196,10 @@ func Register(r Rule) {
 	// Fail loudly at startup, not silently forever: an event whose envelope has
 	// no path for this verb would accept the rule and never run it.
 	v := r.verb()
+	if r.FailClosedOnTimeout && v != VerbCheck && v != VerbGate {
+		panic("hooks: rule " + r.ID + " sets FailClosedOnTimeout on a " + string(v) +
+			" rule; only Check and Gate can block on timeout")
+	}
 	for _, ev := range r.Events {
 		if !knownEvents[ev] {
 			panic("hooks: rule " + r.ID + " registers on unknown event " + string(ev))
@@ -244,7 +254,7 @@ func (r Rule) verb() Verb {
 
 // runnable reports whether a rule should execute for this event: right event,
 // right tool, enabled, and its binaries present. A missing binary is reported
-// by Run as a blocking finding, so the other verbs just skip.
+// by RunChecks as a blocking finding, so the other verbs just skip.
 func (r Rule) runnable(ev *Event) bool {
 	why := r.skipReason(ev)
 	if why == "" {
@@ -277,13 +287,6 @@ func RunAdvice(ev *Event) []Advice {
 		}
 	}
 	return out
-}
-
-// Run executes every matching Check rule and returns all findings stamped with
-// their rule ID; a SingleFailure rule that fires short-circuits with its alone.
-// A rule that overruns its Timeout is abandoned fail-open (no findings).
-func Run(ev *Event) []Finding {
-	return RunChecks(ev).Findings
 }
 
 // CheckResults splits what a Check produced by how the user wants it treated:
@@ -369,22 +372,47 @@ func advisoryText(fired []Finding) string {
 
 // RunGates runs each matching Gate under its Timeout and returns the first
 // non-nil Decision; defers (nil) and overruns (fail-open) fall through. Run it
-// only after Run found nothing, so a Check deny beats a gate allow.
+// only after RunChecks found nothing, so a Check deny beats a gate allow.
 func RunGates(ev *Event) *Decision {
 	for _, r := range registry {
 		if r.Gate == nil || !r.runnable(ev) {
 			continue
 		}
 		var dec *Decision
+		started := time.Now()
 		done := runWithTimeout(RuleTimeout(r.ID, r.Timeout), func(ctx context.Context) {
 			dec = r.Gate(ctx, ev)
 		})
-		if done && dec != nil {
+		if !done {
+			if r.FailClosedOnTimeout {
+				traceRule(r, ev, VerbGate, started, "TIMED OUT — blocking, fail-closed")
+				return &Decision{
+					Rule:       r.ID,
+					Permission: failClosedVerdict(ev.HookEventName),
+					Reason:     timedOut(r).Message,
+				}
+			}
+			traceRule(r, ev, VerbGate, started, "TIMED OUT — abandoned, fail-open")
+			continue
+		}
+		if dec != nil {
 			dec.Rule = r.ID
 			return dec
 		}
 	}
 	return nil
+}
+
+// failClosedVerdict is the "do not proceed" decision for a gate that overran
+// where NOT deciding is the failure. Vocabulary is per-event: tool gates deny,
+// an elicitation gate cancels.
+func failClosedVerdict(event EventName) string {
+	switch event {
+	case Elicitation, ElicitationResult:
+		return ActionCancel
+	default:
+		return PermissionDeny
+	}
 }
 
 // RunDisplays returns the first display rewrite for a MessageDisplay delta, or
@@ -430,7 +458,7 @@ func runWithTimeout(seconds int, fn func(ctx context.Context)) bool {
 }
 
 // RunRewrites returns the first input rewrite from a matching Rewrite rule, or
-// nil if none applies. Callers apply it ONLY when Run returned no findings, so
+// nil if none applies. Callers apply it ONLY when RunChecks found nothing, so
 // a denied event is never rewritten.
 func RunRewrites(ev *Event) *Mutation {
 	for _, r := range registry {

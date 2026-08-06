@@ -64,6 +64,67 @@ func TestExpandFindingsKeepsLongWordsWhole(t *testing.T) {
 	}
 }
 
+// A SingleFailure rule that fires returns its findings alone, so the model gets
+// one precise diagnosis instead of every matching rule's output piled together.
+func TestSingleFailureShortCircuits(t *testing.T) {
+	writeUserConfig(t, "")
+	saved := registry
+	t.Cleanup(func() { registry = saved })
+	registry = []Rule{
+		{
+			ID: "precise", Events: []EventName{PostToolUse}, EnabledByDefault: true,
+			SingleFailure: true,
+			Check:         func(context.Context, *Event) []Finding { return []Finding{{Message: "the one thing"}} },
+		},
+		{
+			ID: "noisy", Events: []EventName{PostToolUse}, EnabledByDefault: true,
+			Check: func(context.Context, *Event) []Finding { return []Finding{{Message: "also this"}} },
+		},
+	}
+	res := RunChecks(&Event{HookEventName: "PostToolUse"})
+	if len(res.Findings) != 1 || res.Findings[0].Message != "the one thing" {
+		t.Errorf("SingleFailure must return only its own findings, got %+v", res.Findings)
+	}
+}
+
+// A gate that overruns denies when it is fail-closed: the review-gate case,
+// where letting the call through unreviewed is itself the failure.
+func TestGateFailsClosedOnTimeout(t *testing.T) {
+	writeUserConfig(t, "")
+	saved := registry
+	t.Cleanup(func() { registry = saved })
+	registry = []Rule{{
+		ID: "slow-gate", Events: []EventName{PreToolUse}, EnabledByDefault: true,
+		FailClosedOnTimeout: true, Timeout: 1,
+		Gate: func(context.Context, *Event) *Decision {
+			time.Sleep(2 * time.Second)
+			return &Decision{Permission: PermissionAllow}
+		},
+	}}
+	dec := RunGates(&Event{HookEventName: "PreToolUse"})
+	if dec == nil || dec.Permission != PermissionDeny {
+		t.Errorf("a timed-out fail-closed gate must deny, got %+v", dec)
+	}
+}
+
+// FailClosedOnTimeout only makes sense where a rule can block, so setting it on
+// a Display rule must panic at registration rather than silently do nothing.
+func TestFailClosedOnTimeoutRejectedOnNonBlockingVerb(t *testing.T) {
+	saved := registry
+	t.Cleanup(func() { registry = saved })
+	registry = nil
+	defer func() {
+		if recover() == nil {
+			t.Error("FailClosedOnTimeout on a Display rule must panic")
+		}
+	}()
+	Register(Rule{
+		ID: "bad-failclosed", Events: []EventName{MessageDisplay},
+		FailClosedOnTimeout: true,
+		Display:             func(context.Context, *Event) *DisplayContent { return nil },
+	})
+}
+
 func TestRunWithTimeout(t *testing.T) {
 	if done := runWithTimeout(1, func(context.Context) {}); !done {
 		t.Error("fast fn should finish within its window")

@@ -90,7 +90,7 @@ func TestCheckProseWrapConfig(t *testing.T) {
 	// test and pass for the wrong reason.
 	t.Run("disabled", func(t *testing.T) {
 		write(t, "enabled = false\n")
-		if got := hook.Run(pwWrite("notes.md", wrapped)); got != nil {
+		if got := hook.RunChecks(pwWrite("notes.md", wrapped)).Findings; got != nil {
 			t.Fatalf("want no findings when disabled, got %v", hooktest.Messages(got))
 		}
 	})
@@ -110,7 +110,7 @@ func TestCheckProseWrapConfig(t *testing.T) {
 
 	t.Run("promoted to blocking on request", func(t *testing.T) {
 		write(t, "enabled = true\nseverity = \"block\"\n")
-		if got := hook.Run(pwWrite("notes.md", wrapped)); len(got) == 0 {
+		if got := hook.RunChecks(pwWrite("notes.md", wrapped)).Findings; len(got) == 0 {
 			t.Fatal("the user must be able to make it block")
 		}
 	})

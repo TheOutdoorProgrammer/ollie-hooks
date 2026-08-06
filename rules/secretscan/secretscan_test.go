@@ -69,7 +69,7 @@ func TestIgnoresAnEmptyPrompt(t *testing.T) {
 // Scanning is opt-in: a fresh install must not start blocking prompts.
 func TestDisabledByDefault(t *testing.T) {
 	hooktest.NoConfig(t)
-	hooktest.AssertClean(t, hook.Run(promptEvent("token "+fakePAT())))
+	hooktest.AssertClean(t, hook.RunChecks(promptEvent("token "+fakePAT())).Findings)
 }
 
 // Fail closed: an enabled scanner that cannot run must say so, not pass.
