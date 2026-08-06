@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook"
+	"github.com/TheOutdoorProgrammer/ollie-hooks/internal/betterleaks"
 )
 
 // textFields are the tool-output keys worth scanning. The rest of the object
@@ -38,7 +39,11 @@ func redactToolOutput(ctx context.Context, ev *hook.Event) *hook.Mutation {
 		return nil
 	}
 
-	found := scan(ctx, cfg, scanned.String())
+	leaks, err := betterleaks.Scan(ctx, cfg.Binary, scanned.String(), 0)
+	if err != nil {
+		return nil
+	}
+	found := secretsByValue(leaks)
 	if len(found) == 0 {
 		return nil
 	}
@@ -81,27 +86,10 @@ func replaceAll(s string, found map[string]string, kinds map[string]bool) (strin
 	return s, hit
 }
 
-// scan returns the literal secrets in text, keyed to the rule that matched.
-// betterleaks is asked NOT to redact here — the value is what we replace on,
-// and matching on positions instead breaks the moment output is multibyte.
-func scan(ctx context.Context, cfg config, text string) map[string]string {
-	res, ok := hook.Exec(ctx, text, cfg.Binary,
-		"stdin", "--no-banner", "--redact=0",
-		"--report-format", "json", "--report-path", "-")
-	if !ok {
-		return nil
-	}
-	out := strings.TrimSpace(res.Stdout)
-	if !strings.HasPrefix(out, "[") {
-		return nil
-	}
-	var leaks []struct {
-		RuleID string `json:"RuleID"`
-		Secret string `json:"Secret"`
-	}
-	if err := json.Unmarshal([]byte(out), &leaks); err != nil {
-		return nil
-	}
+// secretsByValue maps each literal secret to its credential kind, so replaceAll
+// can swap the value for a placeholder naming that kind. The scan runs at
+// redact=0 because the value itself is what we match and replace on.
+func secretsByValue(leaks []betterleaks.Leak) map[string]string {
 	found := make(map[string]string, len(leaks))
 	for _, l := range leaks {
 		if l.Secret == "" {

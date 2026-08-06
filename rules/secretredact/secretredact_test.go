@@ -9,18 +9,12 @@ import (
 
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook"
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook/hooktest"
+	"github.com/TheOutdoorProgrammer/ollie-hooks/internal/betterleaks/betterleakstest"
 )
 
 func TestMain(m *testing.M) {
 	Register()
 	os.Exit(m.Run())
-}
-
-// fakePAT builds a token-shaped value that is valid for nothing. Assembled from
-// fragments so no whole token literal sits in source, where it would trip every
-// secret scanner reading this repo — including our own pre-commit gate.
-func fakePAT() string {
-	return strings.Join([]string{"ghp", "_A1b2C3d4E5f6", "G7h8I9j0K1l2", "M3n4O5p6Q7r8"}, "")
 }
 
 func requireScanner(t *testing.T) {
@@ -42,13 +36,13 @@ func bashResult(t *testing.T, stdout, stderr string) *hook.Event {
 func TestRedactsACredentialInStdout(t *testing.T) {
 	requireScanner(t)
 	hooktest.Config(t, RuleID, "enabled = true")
-	m := redactToolOutput(context.Background(), bashResult(t, "export TOKEN="+fakePAT(), ""))
+	m := redactToolOutput(context.Background(), bashResult(t, "export TOKEN="+betterleakstest.FakePAT(), ""))
 	if m == nil {
 		t.Fatal("a credential in stdout must be redacted")
 	}
 	out, _ := m.UpdatedOutput.(map[string]any)
 	got, _ := out["stdout"].(string)
-	if strings.Contains(got, fakePAT()) {
+	if strings.Contains(got, betterleakstest.FakePAT()) {
 		t.Errorf("the secret survived into the output Claude reads: %q", got)
 	}
 	if !strings.Contains(got, "<redacted:github-pat>") {
@@ -64,7 +58,7 @@ func TestRedactsACredentialInStdout(t *testing.T) {
 func TestPreservesUntouchedFields(t *testing.T) {
 	requireScanner(t)
 	hooktest.Config(t, RuleID, "enabled = true")
-	m := redactToolOutput(context.Background(), bashResult(t, fakePAT(), "some stderr"))
+	m := redactToolOutput(context.Background(), bashResult(t, betterleakstest.FakePAT(), "some stderr"))
 	if m == nil {
 		t.Fatal("expected a redaction")
 	}
@@ -85,12 +79,12 @@ func TestPreservesUntouchedFields(t *testing.T) {
 func TestRedactsStderrToo(t *testing.T) {
 	requireScanner(t)
 	hooktest.Config(t, RuleID, "enabled = true")
-	m := redactToolOutput(context.Background(), bashResult(t, "", "error using "+fakePAT()))
+	m := redactToolOutput(context.Background(), bashResult(t, "", "error using "+betterleakstest.FakePAT()))
 	if m == nil {
 		t.Fatal("a credential in stderr must be redacted")
 	}
 	out, _ := m.UpdatedOutput.(map[string]any)
-	if got, _ := out["stderr"].(string); strings.Contains(got, fakePAT()) {
+	if got, _ := out["stderr"].(string); strings.Contains(got, betterleakstest.FakePAT()) {
 		t.Errorf("secret survived in stderr: %q", got)
 	}
 }
@@ -99,14 +93,14 @@ func TestRedactsStderrToo(t *testing.T) {
 func TestNoteNamesTheKind(t *testing.T) {
 	requireScanner(t)
 	hooktest.Config(t, RuleID, "enabled = true")
-	m := redactToolOutput(context.Background(), bashResult(t, fakePAT(), ""))
+	m := redactToolOutput(context.Background(), bashResult(t, betterleakstest.FakePAT(), ""))
 	if m == nil {
 		t.Fatal("expected a redaction")
 	}
 	if !strings.Contains(m.Note, "github-pat") {
 		t.Errorf("note should name what was redacted: %q", m.Note)
 	}
-	if strings.Contains(m.Note, fakePAT()) {
+	if strings.Contains(m.Note, betterleakstest.FakePAT()) {
 		t.Errorf("the note must not repeat the secret: %q", m.Note)
 	}
 }
@@ -122,7 +116,7 @@ func TestLeavesCleanOutputAlone(t *testing.T) {
 func TestIgnoresToolsOutsideTheList(t *testing.T) {
 	requireScanner(t)
 	hooktest.Config(t, RuleID, "enabled = true")
-	ev := bashResult(t, fakePAT(), "")
+	ev := bashResult(t, betterleakstest.FakePAT(), "")
 	ev.ToolName = "Read"
 	if m := redactToolOutput(context.Background(), ev); m != nil {
 		t.Error("only configured tools should be scanned")
@@ -139,7 +133,7 @@ func TestFallsOpenOnUnreadableOutput(t *testing.T) {
 
 func TestDisabledByDefault(t *testing.T) {
 	hooktest.NoConfig(t)
-	if m := hook.RunRewrites(bashResult(t, fakePAT(), "")); m != nil {
+	if m := hook.RunRewrites(bashResult(t, betterleakstest.FakePAT(), "")); m != nil {
 		t.Error("redaction is opt-in; a fresh install must not rewrite output")
 	}
 }

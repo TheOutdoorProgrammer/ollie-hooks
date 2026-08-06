@@ -2,26 +2,18 @@ package secretscan
 
 import (
 	"context"
-	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/TheOutdoorProgrammer/ollie-hooks/hook"
+	"github.com/TheOutdoorProgrammer/ollie-hooks/internal/betterleaks"
 )
 
 // scanTimeout bounds the scan under whatever the framework already allows:
 // betterleaks handles a prompt in single-digit milliseconds, so anything near
 // this means something is badly wrong.
 const scanTimeout = 5 * time.Second
-
-// leak is one betterleaks finding. Match and Secret come back redacted, so
-// nothing here carries the credential itself.
-type leak struct {
-	RuleID      string `json:"RuleID"`
-	Description string `json:"Description"`
-	StartLine   int    `json:"StartLine"`
-}
 
 // checkSecrets blocks a prompt carrying something credential-shaped. This is
 // the only event that can stop text before it reaches the API: PreToolUse is
@@ -33,21 +25,9 @@ func checkSecrets(ctx context.Context, ev *hook.Event) []hook.Finding {
 	}
 	ctx, cancel := context.WithTimeout(ctx, scanTimeout)
 	defer cancel()
-	res, ok := hook.Exec(ctx, ev.Prompt, cfg.Binary,
-		"stdin", "--no-banner", "--redact="+strconv.Itoa(cfg.Redact),
-		"--report-format", "json", "--report-path", "-")
-	if !ok {
-		return unscanned(cfg.Binary, "could not be run")
-	}
-	// betterleaks exits 0 clean and 1 when it finds something. Any other code is
-	// the scanner failing, which must not read the same as a clean prompt.
-	if res.ExitCode != 0 && res.ExitCode != 1 {
-		return unscanned(cfg.Binary, "exited "+strconv.Itoa(res.ExitCode))
-	}
-
-	leaks, readable := parseLeaks(res.Stdout)
-	if !readable {
-		return unscanned(cfg.Binary, "produced a report that could not be read")
+	leaks, err := betterleaks.Scan(ctx, cfg.Binary, ev.Prompt, cfg.Redact)
+	if err != nil {
+		return unscanned(cfg.Binary, err.Error())
 	}
 	if len(leaks) == 0 {
 		return nil
@@ -65,23 +45,9 @@ func unscanned(binary, what string) []hook.Finding {
 		quietly here would defeat the point of the check.`}}
 }
 
-// parseLeaks reads the scanner's JSON report. readable is false when the output
-// is not a report at all, which is a failed scan rather than a clean one: this
-// rule exists to catch secrets, so unreadable must never read as "none found".
-func parseLeaks(out string) (leaks []leak, readable bool) {
-	out = strings.TrimSpace(out)
-	if out == "" || !strings.HasPrefix(out, "[") {
-		return nil, false
-	}
-	if err := json.Unmarshal([]byte(out), &leaks); err != nil {
-		return nil, false
-	}
-	return leaks, true
-}
-
 // describe names what was found and where, never the value. Repeating the
 // secret into the block reason would put it straight back in the transcript.
-func describe(leaks []leak) string {
+func describe(leaks []betterleaks.Leak) string {
 	kinds := make([]string, 0, len(leaks))
 	seen := map[string]bool{}
 	for _, l := range leaks {
