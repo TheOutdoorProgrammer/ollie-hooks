@@ -16,6 +16,8 @@ type config struct {
 	Extensions []string `toml:"extensions" doc:"file extensions this applies to"`
 	// A reflowed file can produce hundreds, and a wall of them buries the point.
 	MaxReported int `toml:"max_reported" doc:"stop listing wrapped lines after this many"`
+	// Off by default: plenty of people love an em-dash, so this is opt-in.
+	FlagEmDashes bool `toml:"flag_em_dashes" doc:"also flag touched lines that use an em-dash"`
 }
 
 func defaultConfig() config {

@@ -33,6 +33,20 @@ func TestCheckProseWrapWrite(t *testing.T) {
 	}
 }
 
+func TestProseWrapEmDashFlag(t *testing.T) {
+	emDash := "This clause is set off with an em-dash — like this.\n"
+
+	// Off by default: an em-dash alone is not flagged.
+	hooktest.NoConfig(t)
+	if got := checkProseWrap(context.Background(), pwWrite("notes.md", emDash)); got != nil {
+		t.Fatalf("the em-dash flag is opt-in; want no findings by default, got %v", hooktest.Messages(got))
+	}
+
+	// Opt in, and the em-dash line is flagged.
+	hooktest.Config(t, RuleID, "enabled = true\nflag_em_dashes = true")
+	hooktest.AssertFinding(t, checkProseWrap(context.Background(), pwWrite("notes.md", emDash)), "em-dash")
+}
+
 // The rule is markdown-only: source files have their own comment budget, and a
 // long line there is the comments rule's business, not this one's.
 func TestCheckProseWrapOnlyMarkdown(t *testing.T) {

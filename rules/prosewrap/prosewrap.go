@@ -17,20 +17,42 @@ func checkProseWrap(ctx context.Context, ev *hook.Event) []hook.Finding {
 		return nil
 	}
 
-	var wraps []proseWrap
+	var wraps, dashes []proseWrap
 	for _, text := range edited.Added() {
 		wraps = append(wraps, scanProseWraps(text, cfg.MaxReported)...)
+		if cfg.FlagEmDashes {
+			dashes = append(dashes, scanEmDashes(text, cfg.MaxReported)...)
+		}
 	}
-	if len(wraps) == 0 {
+	if len(wraps) == 0 && len(dashes) == 0 {
 		return nil
 	}
 
-	findings := make([]hook.Finding, 0, len(wraps)+1)
-	findings = append(findings, hook.Finding{Message: proseGuidance()})
-	for _, w := range wraps {
-		findings = append(findings, hook.Finding{Message: fmt.Sprintf("L%d: %s", w.line, truncateProse(w.text))})
-	}
+	findings := make([]hook.Finding, 0, len(wraps)+len(dashes)+2)
+	findings = append(findings, section(proseGuidance(), wraps)...)
+	findings = append(findings, section(emDashGuidance(), dashes)...)
 	return findings
+}
+
+// section turns a batch of flagged lines into a guidance finding plus one line
+// each, or nothing when the batch is empty.
+func section(guidance string, lines []proseWrap) []hook.Finding {
+	if len(lines) == 0 {
+		return nil
+	}
+	out := make([]hook.Finding, 0, len(lines)+1)
+	out = append(out, hook.Finding{Message: guidance})
+	for _, w := range lines {
+		out = append(out, hook.Finding{Message: fmt.Sprintf("L%d: %s", w.line, truncateProse(w.text))})
+	}
+	return out
+}
+
+func emDashGuidance() string {
+	return `
+		Em-dash gate: these lines use an em-dash (—). Replace each with a comma,
+		colon, period, or parentheses, whichever the sentence wants. Opt-in house
+		style: set flag_em_dashes = false under [rules.prose-wrap] to turn it off.`
 }
 
 func proseGuidance() string {

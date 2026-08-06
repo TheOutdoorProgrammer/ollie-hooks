@@ -187,6 +187,7 @@ Only `graph` and `flowchart`, `sequenceDiagram` and `erDiagram` parse at all. An
 | --- | --- |
 | Events | `MessageDisplay` |
 | Verb | Display |
+| Needs | `mermaid-ascii` (go install github.com/AlexanderGrooff/mermaid-ascii@latest) |
 | Enabled by default | no |
 
 | Key | Default | What it does |
@@ -219,3 +220,4 @@ Advisory by default. Plenty of people hard-wrap at 80 and are perfectly happy, s
 | `ignore_paths` | `[]` | skip any path containing one of these |
 | `extensions` | `[".md", ".markdown"]` | file extensions this applies to |
 | `max_reported` | `10` | stop listing wrapped lines after this many |
+| `flag_em_dashes` | `false` | also flag touched lines that use an em-dash |

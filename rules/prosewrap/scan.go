@@ -67,6 +67,43 @@ func scanProseWraps(text string, limit int) []proseWrap {
 	return out
 }
 
+// scanEmDashes finds touched lines that use an em-dash, skipping fenced code
+// and front matter where one may be deliberate. Opt-in via flag_em_dashes.
+func scanEmDashes(text string, limit int) []proseWrap {
+	lines := strings.Split(text, "\n")
+	var out []proseWrap
+	fence := ""
+	inFrontMatter := false
+	for i, raw := range lines {
+		trimmed := strings.TrimSpace(raw)
+		if i == 0 && trimmed == "---" {
+			inFrontMatter = true
+			continue
+		}
+		if inFrontMatter {
+			if trimmed == "---" {
+				inFrontMatter = false
+			}
+			continue
+		}
+		if token := fenceToken(trimmed); token != "" {
+			if fence == "" {
+				fence = token
+			} else if strings.HasPrefix(token, fence) {
+				fence = ""
+			}
+			continue
+		}
+		if fence == "" && strings.ContainsRune(raw, '—') {
+			out = append(out, proseWrap{line: i + 1, text: trimmed})
+			if len(out) == limit {
+				break
+			}
+		}
+	}
+	return out
+}
+
 func fenceToken(trimmed string) string {
 	for _, token := range []string{"```", "~~~"} {
 		if strings.HasPrefix(trimmed, token) {
