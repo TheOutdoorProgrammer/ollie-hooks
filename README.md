@@ -63,14 +63,14 @@ These ship in the box. Every one is disabled until you enable it.
 <!-- ollie-hooks:rules -->
 | Rule | Event | Verb | Does |
 | --- | --- | --- | --- |
-| `no-codegen` | `PreToolUse` | Check | Block writes to trees configured as off-limits to AI-authored code |
-| `secret-scan` | `UserPromptSubmit` | Check | Scan the prompt for credentials and block before it is sent |
-| `secret-redact` | `PostToolUse` | Rewrite | Replace credentials in tool output with a placeholder before Claude reads it |
-| `lint` | `PostToolUse` | Advise | After an edit, run the file's linter and report what it found (never blocks the edit) |
-| `comments` | `PostToolUse` | Check | Flag verbose or agent-memo comments a change touched (advisory) — justify, slim, or remove |
-| `bash-output` | `PostToolUse`, `PostToolUseFailure` | Display | Re-print a collapsed Bash result in full, so it needs no ctrl+o |
+| `no-codegen` | `PreToolUse` | Check | Stop Claude writing to directories you have marked off-limits |
+| `secret-scan` | `UserPromptSubmit` | Check | Catch a credential in your prompt and stop it before it is sent |
+| `secret-redact` | `PostToolUse` | Rewrite | Strip credentials out of tool output before Claude ever sees them |
+| `lint` | `PostToolUse` | Advise | Run the right linter after an edit and tell Claude what it said |
+| `comments` | `PostToolUse` | Check | Flag bloated or self-narrating comments your change touched |
+| `bash-output` | `PostToolUse`, `PostToolUseFailure` | Display | Print long Bash output in full instead of making you hit ctrl+o |
 | `mermaid-stream` | `MessageDisplay` | Display | Render mermaid fences as terminal ASCII, inline while text streams |
-| `prose-wrap` | `PostToolUse` | Check | Flag markdown prose a change hard-wrapped mid-sentence (advisory) — one sentence per line |
+| `prose-wrap` | `PostToolUse` | Check | Flag markdown your change hard-wrapped mid-sentence |
 <!-- /ollie-hooks:rules -->
 
 `ollie-hooks rules` prints the same list with what your own config is doing to each:
@@ -78,14 +78,14 @@ These ship in the box. Every one is disabled until you enable it.
 ```console
 $ ollie-hooks rules
 RULE            STATE     VERB     DESCRIPTION
-bash-output     off       Display  Re-print a collapsed Bash result in full, so it needs no ctrl+o
-comments        advisory  Check    Flag verbose or agent-memo comments a change touched (advisory) — justify, slim, or remove
-lint            on        Advise   After an edit, run the file's linter and report what it found (never blocks the edit)
+bash-output     off       Display  Print long Bash output in full instead of making you hit ctrl+o
+comments        advisory  Check    Flag bloated or self-narrating comments your change touched
+lint            on        Advise   Run the right linter after an edit and tell Claude what it said
 mermaid-stream  on        Display  Render mermaid fences as terminal ASCII, inline while text streams
-no-codegen      off       Check    Block writes to trees configured as off-limits to AI-authored code
-prose-wrap      off       Check    Flag markdown prose a change hard-wrapped mid-sentence (advisory) — one sentence per line
-secret-redact   off       Rewrite  Replace credentials in tool output with a placeholder before Claude reads it
-secret-scan     block     Check    Scan the prompt for credentials and block before it is sent
+no-codegen      off       Check    Stop Claude writing to directories you have marked off-limits
+prose-wrap      off       Check    Flag markdown your change hard-wrapped mid-sentence
+secret-redact   off       Rewrite  Strip credentials out of tool output before Claude ever sees them
+secret-scan     block     Check    Catch a credential in your prompt and stop it before it is sent
 ```
 
 `STATE` is what your config actually does with each rule, so "is it even on?" stops being a guess.
