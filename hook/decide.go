@@ -10,6 +10,7 @@ package hook
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	toon "github.com/toon-format/toon-go"
@@ -246,19 +247,63 @@ func respondDisplay(event EventName, dc *DisplayContent) (string, error) {
 	return string(raw), nil
 }
 
-// respondDecision builds the envelope for a Gate verdict. echo and advice ride
-// along, or a gate that merely allows a call would swallow every other rule's
-// output for that event.
+// respondDecision builds the envelope for a Gate verdict, in the shape that
+// event actually reads: three events, three different shapes. echo and advice
+// ride along, or a gate that merely allows a call would swallow every other
+// rule.s output.
 func respondDecision(event EventName, d *Decision, echo, advice string) (string, error) {
-	hso := map[string]any{
-		"hookEventName":            string(event),
-		"permissionDecision":       d.Permission,
-		"permissionDecisionReason": d.Reason,
+	hso := map[string]any{"hookEventName": string(event)}
+	// additionalContext is documented for neither of the two events below, so
+	// it only rides along where it is actually read.
+	carriesAdvice := false
+
+	switch event {
+	case PreToolUse:
+		if err := allowed(event, d.Permission,
+			PermissionAllow, PermissionDeny, PermissionAsk, PermissionDefer); err != nil {
+			return "", err
+		}
+		hso["permissionDecision"] = d.Permission
+		hso["permissionDecisionReason"] = d.Reason
+		if d.UpdatedInput != nil {
+			hso["updatedInput"] = d.UpdatedInput
+		}
+		carriesAdvice = true
+
+	case PermissionRequest:
+		// behavior, not permissionDecision, and updatedInput nests one level
+		// deeper than it does on PreToolUse.
+		if err := allowed(event, d.Permission, PermissionAllow, PermissionDeny); err != nil {
+			return "", err
+		}
+		decision := map[string]any{"behavior": d.Permission}
+		if d.Permission == PermissionAllow && d.UpdatedInput != nil {
+			decision["updatedInput"] = d.UpdatedInput
+		}
+		if d.Permission == PermissionDeny && d.Reason != "" {
+			decision["message"] = d.Reason // not permissionDecisionReason
+		}
+		hso["decision"] = decision
+
+	case Elicitation, ElicitationResult:
+		if err := allowed(event, d.Permission,
+			ActionAccept, ActionDecline, ActionCancel); err != nil {
+			return "", err
+		}
+		hso["action"] = d.Permission
+		if d.Permission == ActionAccept && d.Content != nil {
+			hso["content"] = d.Content
+		}
+
+	default:
+		return "", fmt.Errorf("no decision envelope for event %q", event)
 	}
-	if advice != "" {
+
+	if carriesAdvice && advice != "" {
 		hso["additionalContext"] = advice
 	}
 	envelope := map[string]any{"hookSpecificOutput": hso}
+	// systemMessage is universal, so the user still sees an echo either way.
 	if echo != "" {
 		envelope["systemMessage"] = systemMessageText(echo)
 	}
@@ -267,4 +312,15 @@ func respondDecision(event EventName, d *Decision, echo, advice string) (string,
 		return "", fmt.Errorf("encoding decision envelope: %w", err)
 	}
 	return string(raw), nil
+}
+
+// allowed rejects a verdict the event cannot express. Claude Code would drop
+// the field, and on PermissionRequest that reads as a denial rather than as
+// nothing having happened.
+func allowed(event EventName, got string, want ...string) error {
+	if slices.Contains(want, got) {
+		return nil
+	}
+	return fmt.Errorf("%s cannot express permission %q; use one of %s",
+		event, got, strings.Join(want, ", "))
 }

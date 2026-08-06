@@ -125,7 +125,10 @@ var eventCaps = map[EventName]eventCap{
 	},
 	PermissionRequest: {
 		Matcher: matchTool,
-		Verbs:   []Verb{VerbGate, VerbRewrite},
+		// Gate only. This event carries updatedInput inside its decision object,
+		// valid solely alongside an allow, so a bare Rewrite has no envelope to
+		// emit here — Decision.UpdatedInput is how you change the input.
+		Verbs: []Verb{VerbGate},
 	},
 	PostToolBatch: {
 		Matcher: matchNone,
@@ -187,6 +190,11 @@ var eventCaps = map[EventName]eventCap{
 
 	// MCP elicitation.
 	Elicitation: {
+		Verbs: []Verb{VerbGate},
+	},
+	// Same envelope as Elicitation, fired after the user answers: a Gate here
+	// overrides what they chose.
+	ElicitationResult: {
 		Verbs: []Verb{VerbGate},
 	},
 

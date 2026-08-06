@@ -110,7 +110,7 @@ A rule declares the events it runs on and exactly one verb.
 | --- | --- |
 | `Check` | Findings. Block the call, or arrive as context — your `severity` decides. |
 | `Advise` | Context for the model, never blocking. |
-| `Gate` | An explicit allow/deny. |
+| `Gate` | An explicit allow/deny, and the only verb that can *approve*. |
 | `Rewrite` | Change the tool's input before it runs, or its output before Claude reads it. |
 | `Display` | Change what appears on screen. The transcript keeps the original. |
 
@@ -131,6 +131,9 @@ hook.Register(hook.Rule{
 `hook/` carries what a rule needs and rules should not re-solve: config loading, per-rule JSON state, guarded subprocess execution, ANSI colour, finding layout and wrapping, and `EditedFile()` for scoping a check to what a change actually introduced. `hook/hooktest` has event fixtures so a rule can be tested without a running Claude Code.
 
 Registration fails loudly. A misspelled event, or a verb the event cannot express, **panics at startup** rather than registering happily and firing never — which is the bug report with nothing to point at.
+
+The same applies to a `Gate` verdict. Each event reads a different envelope: `PreToolUse` takes `allow`/`deny`/`ask`/`defer`, `PermissionRequest` takes only `allow`/`deny`, and `Elicitation` takes `accept`/`decline`/`cancel`.
+Returning the wrong one is an error rather than an envelope Claude Code quietly drops, which matters most on `PermissionRequest`: a session that cannot show a prompt **denies** anything left undecided, so a malformed decision there is a denial, not a no-op.
 
 ## Rules in another process
 

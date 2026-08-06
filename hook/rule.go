@@ -99,12 +99,37 @@ type DisplayContent struct {
 	Text string
 }
 
-// Decision is a Gate's verdict: Permission "allow"|"deny" + a Reason (multiline
-// is fine — it lands in a JSON string, not the TOON table). nil = defer.
+// Verdict values for Decision.Permission. Which set applies depends on the
+// event, and respondDecision rejects one from the wrong set rather than
+// emitting an envelope Claude Code cannot read.
+const (
+	// PreToolUse and PermissionRequest. Ask and Defer are PreToolUse only.
+	PermissionAllow = "allow"
+	PermissionDeny  = "deny"
+	PermissionAsk   = "ask"
+	PermissionDefer = "defer"
+	ActionAccept    = "accept"
+	ActionDecline   = "decline"
+	ActionCancel    = "cancel"
+)
+
+// Decision is a Gate's verdict. nil = defer to the normal flow, though on
+// PermissionRequest that is not neutral: a session with no prompt to show
+// denies the call when nothing decides.
 type Decision struct {
-	Rule       string
+	Rule string
+	// Permission is the verdict, from the constants above. PreToolUse and
+	// PermissionRequest take allow/deny; Elicitation takes accept/decline/cancel.
 	Permission string
-	Reason     string
+	// Reason explains the verdict. Multiline is fine, it lands in a JSON string
+	// rather than the TOON table.
+	Reason string
+	// UpdatedInput replaces the tool's arguments. Allowed calls only, and it
+	// replaces the WHOLE object, so start from the decoded input.
+	UpdatedInput map[string]any
+	// Content is the form the user would have filled in, for an accepted
+	// Elicitation.
+	Content map[string]any
 }
 
 // Mutation transforms a tool call instead of blocking it. Which field applies

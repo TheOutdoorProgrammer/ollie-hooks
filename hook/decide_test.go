@@ -147,17 +147,6 @@ func TestBlockedPromptIsSuppressed(t *testing.T) {
 	}
 }
 
-// A Gate on a non-PreToolUse event used to emit hookEventName "PreToolUse".
-func TestGateEnvelopeNamesItsOwnEvent(t *testing.T) {
-	out, err := respondDecision("PermissionRequest", &Decision{Permission: "deny", Reason: "no"}, "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, `"hookEventName":"PermissionRequest"`) {
-		t.Errorf("envelope must name the real event, got %q", out)
-	}
-}
-
 // A Gate that allows a call must not swallow what every other rule produced for
 // the same event. Advisory findings and screen echo used to vanish the moment
 // any gate returned a decision, including a plain allow.
@@ -211,5 +200,83 @@ enabled = true
 	}
 	if !strings.Contains(out, "worth knowing") {
 		t.Errorf("advice was dropped when a gate allowed the call: %q", out)
+	}
+}
+
+// PermissionRequest reads decision.behavior, not permissionDecision, and its
+// deny reason is decision.message. Emitting the PreToolUse shape here is not a
+// no-op: a session that cannot prompt denies anything left undecided.
+func TestPermissionRequestUsesItsOwnShape(t *testing.T) {
+	out, err := respondDecision(PermissionRequest,
+		&Decision{Permission: PermissionDeny, Reason: "not allowed"}, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`"hookEventName":"PermissionRequest"`,
+		`"decision":{`,
+		`"behavior":"deny"`,
+		`"message":"not allowed"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %s in %q", want, out)
+		}
+	}
+	for _, unwanted := range []string{"permissionDecision", "additionalContext"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("%s is not read on this event, got %q", unwanted, out)
+		}
+	}
+}
+
+func TestPermissionRequestNestsUpdatedInput(t *testing.T) {
+	out, err := respondDecision(PermissionRequest, &Decision{
+		Permission:   PermissionAllow,
+		UpdatedInput: map[string]any{"command": "npm run lint"},
+	}, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One level deeper than PreToolUse, inside the decision object.
+	if !strings.Contains(out, `"decision":{"behavior":"allow","updatedInput":{"command":"npm run lint"}}`) {
+		t.Errorf("updatedInput must nest inside decision, got %q", out)
+	}
+}
+
+func TestElicitationUsesAnAction(t *testing.T) {
+	out, err := respondDecision(Elicitation, &Decision{
+		Permission: ActionAccept,
+		Content:    map[string]any{"username": "alice"},
+	}, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"action":"accept"`, `"content":{"username":"alice"}`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %s in %q", want, out)
+		}
+	}
+	if strings.Contains(out, "permissionDecision") {
+		t.Errorf("elicitation does not read permissionDecision, got %q", out)
+	}
+}
+
+// A verdict the event cannot express must be an error. Claude Code drops the
+// field, and on PermissionRequest a dropped decision reads as a denial.
+func TestDecisionRejectsAVerdictTheEventCannotExpress(t *testing.T) {
+	cases := []struct {
+		event EventName
+		verb  string
+	}{
+		{PermissionRequest, PermissionAsk}, // allow/deny only here
+		{PermissionRequest, ActionAccept},  // wrong vocabulary entirely
+		{Elicitation, PermissionAllow},     // needs accept/decline/cancel
+		{PreToolUse, "Deny"},               // capitalised: silently garbage
+		{PostToolUse, PermissionAllow},     // no gate envelope at all
+	}
+	for _, c := range cases {
+		if _, err := respondDecision(c.event, &Decision{Permission: c.verb}, "", ""); err == nil {
+			t.Errorf("%s with %q should be rejected", c.event, c.verb)
+		}
 	}
 }
