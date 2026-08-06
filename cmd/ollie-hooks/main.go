@@ -29,6 +29,8 @@ Usage:
   ollie-hooks rules            What rules exist, and what your config does with them.
   ollie-hooks config example   A commented config covering every rule.
   ollie-hooks wiring           The settings.json entries that wire this up.
+  ollie-hooks wiring --check   Diff the wiring against settings.json; fail on drift.
+  ollie-hooks doctor           Diagnose your setup; exit non-zero if anything is off.
   ollie-hooks trust [dir]      Apply this repo's .ollie-hooks.toml config.
   ollie-hooks untrust [dir]    Stop applying this repo's project config.
   ollie-hooks docs             The markdown rule reference.
@@ -67,7 +69,17 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "wiring":
+			if len(os.Args) > 2 && os.Args[2] == "--check" {
+				if !hook.WriteWiringCheck(os.Stdout) {
+					os.Exit(1)
+				}
+				return
+			}
 			hook.PrintWiring()
+		case "doctor":
+			if !hook.WriteDoctor(os.Stdout) {
+				os.Exit(1)
+			}
 		case "rules":
 			hook.WriteRuleList(os.Stdout)
 		case "docs":

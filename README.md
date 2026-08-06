@@ -31,7 +31,12 @@ Then wire it up:
 
 ```sh
 ollie-hooks wiring          # prints the settings.json entries to add
+ollie-hooks wiring --check  # diffs the wiring against settings.json, fails on drift
+ollie-hooks doctor          # diagnoses your whole setup, exits non-zero if anything is off
 ```
+
+`ollie-hooks doctor` is the one-shot health check: it strict-parses your config and names any key nothing reads (a misspelled `max_commet_lines` is silently ignored otherwise), flags unknown rule sections, diffs the wiring, reports enabled rules whose tools are missing, and prints the effective enabled/severity of every rule plus your trusted projects.
+It exits non-zero when it finds a problem, so it works in CI.
 
 Some rules shell out to other tools. `brew bundle --file=Brewfile` installs them, or install only what the rules you enable need — an enabled rule whose tool is missing tells you so rather than passing quietly.
 
