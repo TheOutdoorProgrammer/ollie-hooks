@@ -50,6 +50,10 @@ func MissingBinaries(tools []Binary) []Binary {
 		missing = append(missing, t)
 	}
 	if dirty {
+		// Refresh the stamp on every append so the TTL window runs from the latest
+		// write, not the first — otherwise a cache that keeps discovering tools
+		// still expires 24h after its very first entry.
+		cache.Written = time.Now()
 		saveBinaryCache(cache)
 	}
 	return missing
