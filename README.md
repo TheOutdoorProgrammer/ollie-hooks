@@ -192,6 +192,10 @@ There is one deliberate exception to failing open. A rule may set `FailClosedOnT
 - `mermaid-ascii` is `go install github.com/AlexanderGrooff/mermaid-ascii@latest` — it has no brew formula.
 - Hook output is capped at 10,000 characters by Claude Code; past that it is replaced by a file path. Findings are trimmed to fit and say how many were dropped.
 
+## Why it works this way
+
+The decisions worth arguing about are written down in [adr/](adr/): why this is one hook instead of many, why plugins speak JSON on stdio rather than gRPC, why rules fail open, and why the built-in rules are stuck with the same public API as everyone else's.
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE), and [NOTICE](NOTICE) for third-party material.
