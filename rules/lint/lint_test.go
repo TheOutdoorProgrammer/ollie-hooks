@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -170,6 +171,7 @@ func TestKeepFile(t *testing.T) {
 // TestCheckLintPkgScoped verifies a package-scoped linter's findings are
 // narrowed to the edited file, so sibling-file lines never leak through.
 func TestCheckLintPkgScoped(t *testing.T) {
+	skipWithoutAShell(t)
 	hooktest.Config(t, RuleID, "enabled = true")
 	dir := t.TempDir()
 	// Fake linter ignores its args and prints findings for two files.
@@ -222,6 +224,7 @@ func TestMarkdownlintConfigArgs(t *testing.T) {
 // TestCheckLintEndToEnd exercises the full pipeline with a fake linter script,
 // so the test never depends on any real linter being installed.
 func TestCheckLintEndToEnd(t *testing.T) {
+	skipWithoutAShell(t)
 	hooktest.Config(t, RuleID, "enabled = true")
 	dir := t.TempDir()
 
@@ -290,5 +293,14 @@ func TestCheckLintFailOpen(t *testing.T) {
 	// No path at all → nil.
 	if f := adviseLint(context.Background(), &hook.Event{HookEventName: "PostToolUse", ToolName: "Write"}); f != nil {
 		t.Errorf("no input should fail open, got %v", f)
+	}
+}
+
+// skipWithoutAShell guards tests that stand up a fake linter as a #!/bin/sh
+// script. Windows has no shebang handling, so those cannot run there at all.
+func skipWithoutAShell(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake linters are shell scripts; Windows cannot exec them")
 	}
 }
