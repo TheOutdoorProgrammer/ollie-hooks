@@ -79,11 +79,17 @@ These ship in the box. Every one is disabled until you enable it.
 $ ollie-hooks rules
 RULE            STATE     VERB     DESCRIPTION
 bash-output     off       Display  Re-print a collapsed Bash result in full, so it needs no ctrl+o
-comments        advisory  Check    Flag verbose or agent-memo comments a change touched
-lint            on        Advise   After an edit, run the file's linter and report what it found
+comments        advisory  Check    Flag verbose or agent-memo comments a change touched (advisory) — justify, slim, or remove
+lint            on        Advise   After an edit, run the file's linter and report what it found (never blocks the edit)
+mermaid-stream  on        Display  Render mermaid fences as terminal ASCII, inline while text streams
+no-codegen      off       Check    Block writes to trees configured as off-limits to AI-authored code
+prose-wrap      off       Check    Flag markdown prose a change hard-wrapped mid-sentence (advisory) — one sentence per line
+secret-redact   off       Rewrite  Replace credentials in tool output with a placeholder before Claude reads it
 secret-scan     block     Check    Scan the prompt for credentials and block before it is sent
-                          missing betterleaks (brew install betterleaks)
 ```
+
+`STATE` is what your config actually does with each rule, so "is it even on?" stops being a guess.
+A rule whose tool is missing says so on the line below it.
 
 Per-rule configuration is in [docs/rules.md](docs/rules.md), or run `ollie-hooks config example`.
 
